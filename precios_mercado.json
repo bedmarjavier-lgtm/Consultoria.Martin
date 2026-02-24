@@ -1,0 +1,11 @@
+{
+  "ubicacion": "Puente Genil, Córdoba",
+  "fecha": "2026-02-23",
+  "precio_medio": 0.1434,
+  "rango": {
+    "minimo": 0.0752,
+    "maximo": 0.3575
+  },
+  "unidad": "€/kWh",
+  "horas_eficiencia_maxima": "14:00 - 15:00"
+}
