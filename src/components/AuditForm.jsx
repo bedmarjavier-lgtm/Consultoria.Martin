@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const AuditForm = ({ address }) => {
     const [formData, setFormData] = useState({
@@ -9,7 +9,8 @@ const AuditForm = ({ address }) => {
         cups: ''
     });
     const [file, setFile] = useState(null);
-    const [status, setStatus] = useState('idle'); // idle, loading, success, error
+    const [status, setStatus] = useState('idle'); // idle, scanning, loading, success, error
+    const [scanProgress, setScanProgress] = useState(0);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -21,6 +22,16 @@ const AuditForm = ({ address }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (file) {
+            setStatus('scanning');
+            // Simulación de OCR (@Facturas: Chief Billing Auditor)
+            for (let i = 0; i <= 100; i += 20) {
+                setScanProgress(i);
+                await new Promise(r => setTimeout(r, 200));
+            }
+        }
+
         setStatus('loading');
 
         const data = new FormData();
@@ -28,7 +39,7 @@ const AuditForm = ({ address }) => {
         data.append('email', formData.email);
         data.append('phone', formData.phone);
         data.append('cups', formData.cups);
-        data.append('address', address); // @Consuloria.Martin: Vinculación geográfica
+        data.append('address', address);
         if (file) data.append('bill', file);
 
         try {
@@ -70,7 +81,28 @@ const AuditForm = ({ address }) => {
     }
 
     return (
-        <div className="bg-white/[0.03] border border-white/10 p-6 rounded-3xl backdrop-blur-md">
+        <div className="bg-white/[0.03] border border-white/10 p-6 rounded-3xl backdrop-blur-md relative overflow-hidden">
+            <AnimatePresence>
+                {status === 'scanning' && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-50 bg-[#000810]/95 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center"
+                    >
+                        <div className="w-full h-1 bg-white/5 rounded-full mb-4 overflow-hidden">
+                            <motion.div
+                                className="h-full bg-cyan-400 shadow-[0_0_10px_#00f2ff]"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${scanProgress}%` }}
+                            />
+                        </div>
+                        <h4 className="text-[10px] font-black uppercase text-cyan-400 tracking-[0.3em] animate-pulse">Analizando Factura (OCR)...</h4>
+                        <p className="text-[8px] text-white/30 mt-2 uppercase tracking-widest">Extrayendo CUPS y Consumos • @Facturas</p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <div className="mb-6">
                 <h4 className="text-[11px] font-black tracking-[0.3em] text-[var(--accent-orange)] uppercase mb-2">Solicitar Auditoría Gratuita</h4>
                 <p className="text-[10px] text-white/40 font-light leading-relaxed">
@@ -88,20 +120,7 @@ const AuditForm = ({ address }) => {
                         value={formData.fullName}
                         onChange={handleChange}
                         placeholder="Introduce tu nombre..."
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 focus:outline-none focus:border-[var(--accent-orange)]/50 transition-all"
-                    />
-                </div>
-
-                <div>
-                    <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1.5 ml-1">Correo Electrónico</label>
-                    <input
-                        type="email"
-                        name="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="ejemplo@correo.com"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 focus:outline-none focus:border-[var(--accent-orange)]/50 transition-all"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 focus:outline-none focus:border-[var(--accent-orange)]/50 transition-all font-montserrat"
                     />
                 </div>
 
@@ -119,7 +138,7 @@ const AuditForm = ({ address }) => {
                         />
                     </div>
                     <div>
-                        <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1.5 ml-1">CUPS / Catastro</label>
+                        <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1.5 ml-1">Catastro / CUPS</label>
                         <input
                             type="text"
                             name="cups"
@@ -132,7 +151,7 @@ const AuditForm = ({ address }) => {
                 </div>
 
                 <div>
-                    <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1.5 ml-1">Adjuntar Factura (PDF/JPG)</label>
+                    <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1.5 ml-1">Adjuntar Factura (Análisis OCR)</label>
                     <div className="relative group">
                         <input
                             type="file"
@@ -140,9 +159,9 @@ const AuditForm = ({ address }) => {
                             accept=".pdf,.jpg,.jpeg,.png"
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
-                        <div className="w-full bg-white/5 border border-dashed border-white/20 rounded-xl px-4 py-4 text-center group-hover:bg-white/[0.08] group-hover:border-[var(--accent-orange)]/30 transition-all">
+                        <div className="w-full bg-white/5 border border-dashed border-white/20 rounded-xl px-4 py-4 text-center group-hover:bg-white/[0.08] group-hover:border-cyan-500/30 transition-all">
                             <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
-                                {file ? file.name : 'Seleccionar archivo'}
+                                {file ? file.name : 'Vincular factura para escaneo'}
                             </span>
                         </div>
                     </div>
@@ -150,14 +169,14 @@ const AuditForm = ({ address }) => {
 
                 <button
                     type="submit"
-                    disabled={status === 'loading'}
+                    disabled={status === 'loading' || status === 'scanning'}
                     className="w-full py-4 bg-gradient-to-r from-[var(--accent-orange)] to-[#ff6a00] rounded-xl text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[var(--accent-orange)]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100"
                 >
-                    {status === 'loading' ? 'Procesando...' : 'Solicitar Auditoría Gratuita'}
+                    {status === 'loading' ? 'Enviando Datos...' : status === 'scanning' ? 'Analizando...' : 'Solicitar Auditoría Gratuita'}
                 </button>
 
                 {status === 'error' && (
-                    <p className="text-[9px] text-red-400 text-center mt-2 uppercase tracking-widest font-bold">Error en el envío. Inténtalo de nuevo.</p>
+                    <p className="text-[9px] text-red-400 text-center mt-2 uppercase tracking-widest font-bold">Error en la red. Inténtalo de nuevo.</p>
                 )}
             </form>
         </div>

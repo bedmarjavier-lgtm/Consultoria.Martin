@@ -28,6 +28,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Servir archivos estáticos (Facturas)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Ruta para recibir los leads
 app.post('/api/leads', upload.single('bill'), (req, res) => {
     const { fullName, email, phone, cups, address } = req.body;
@@ -51,7 +54,7 @@ app.post('/api/leads', upload.single('bill'), (req, res) => {
         timestamp: new Date().toISOString()
     };
 
-    const leadsFilePath = './leads.json';
+    const leadsFilePath = path.join(__dirname, 'leads.json');
 
     let leads = [];
     if (fs.existsSync(leadsFilePath)) {
@@ -64,6 +67,19 @@ app.post('/api/leads', upload.single('bill'), (req, res) => {
 
     console.log('Lead recibido:', newLead);
     res.status(200).json({ message: 'Liderazgo guardado con éxito', leadId: newLead.id });
+});
+
+
+
+// Ruta para obtener los leads (Admin Dashboard)
+app.get('/api/leads_data', (req, res) => {
+    const leadsFilePath = path.join(__dirname, 'leads.json');
+    if (fs.existsSync(leadsFilePath)) {
+        const rawData = fs.readFileSync(leadsFilePath);
+        res.status(200).json(JSON.parse(rawData));
+    } else {
+        res.status(200).json([]);
+    }
 });
 
 app.listen(PORT, () => {

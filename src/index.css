@@ -21,11 +21,14 @@
   font-family: 'Inter', sans-serif;
 }
 
+html,
 body {
-  background: var(--bg-deep);
+  margin: 0;
+  padding: 0;
+  background: #00050a;
   color: white;
-  overflow: hidden;
-  min-height: 100vh;
+  height: 100%;
+  width: 100%;
 }
 
 /* OceanX Pure Minimalist Background */
@@ -44,13 +47,24 @@ body {
 }
 
 .glass-card {
-  background: rgba(0, 8, 20, 0.7);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
+  background: rgba(0, 15, 30, 0.85);
+  /* Más opaco para lectura */
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 32px;
   padding: 2.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.8),
+    inset 0 0 20px rgba(255, 255, 255, 0.02);
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .glass-card {
+    padding: 1.5rem;
+    border-radius: 20px;
+  }
 }
 
 .text-orange-gradient {
@@ -69,6 +83,17 @@ body {
   font-weight: 900;
   letter-spacing: -4px;
   line-height: 0.9;
+}
+
+@media (max-width: 768px) {
+  .price-glow {
+    font-size: 2.5rem;
+    letter-spacing: -2px;
+  }
+
+  h1 {
+    font-size: 1.5rem !important;
+  }
 }
 
 .liquid-border {
@@ -106,6 +131,13 @@ body {
   line-height: 0.85;
 }
 
+@media (max-width: 768px) {
+  .discovery-text {
+    font-size: 3rem !important;
+    letter-spacing: -2px;
+  }
+}
+
 /* Fix Leaflet */
 .leaflet-container {
   background: #00050a !important;
@@ -132,7 +164,8 @@ body {
   background: var(--accent-orange);
 }
 
-.leaflet-tile-container {
-  /* Filtro eliminado para restaurar color real solicitado */
-  filter: contrast(1.1) saturate(1.1);
+
+
+.bg-radial-gradient {
+  background: radial-gradient(circle at center, transparent 30%, rgba(0, 5, 10, 0.8) 100%);
 }
