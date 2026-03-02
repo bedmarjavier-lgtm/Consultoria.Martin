@@ -1,12 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-const AdminDashboard = ({ isOpen, onClose }) => {
+
+const AdminDashboard = ({ isOpen, onClose, session }) => {
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
     const [error, setError] = useState(false);
+
+    // Bypasseamos el login si es el administrador principal
+    const isAdmin = session?.user?.email === 'bedmarjavier@gmail.com';
+
+    useEffect(() => {
+        if (isOpen) {
+            if (isAdmin) {
+                setIsAuthenticated(true);
+            }
+        } else {
+            // Reset when closing
+            setIsAuthenticated(false);
+            setPassword('');
+        }
+    }, [isOpen, isAdmin]);
 
     useEffect(() => {
         if (isOpen && isAuthenticated) {
@@ -16,7 +32,7 @@ const AdminDashboard = ({ isOpen, onClose }) => {
 
     const handleLogin = (e) => {
         e.preventDefault();
-        // Clave de Seguridad Administrador
+        // Clave de Seguridad Administrador (Fallback si no es isAdmin directo)
         if (password === 'martin2026') {
             setIsAuthenticated(true);
             setError(false);
@@ -26,23 +42,17 @@ const AdminDashboard = ({ isOpen, onClose }) => {
         }
     };
 
-    const handleClose = () => {
-        setIsAuthenticated(false);
-        setPassword('');
-        setError(false);
-        onClose();
-    };
-
     const fetchLeads = async () => {
         setLoading(true);
         try {
+            // Consultamos al servidor central (Hub Unificado)
             const response = await fetch('http://localhost:5001/api/leads_data');
             if (response.ok) {
                 const data = await response.json();
-                setLeads(data);
+                setLeads(data || []);
             }
         } catch (error) {
-            console.error("Error fetching leads:", error);
+            console.error("Error fetching leads from Central Hub:", error);
         } finally {
             setLoading(false);
         }
@@ -100,14 +110,14 @@ const AdminDashboard = ({ isOpen, onClose }) => {
             animate={{ opacity: 1 }}
             className="fixed inset-0 z-[10000] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-10"
         >
-            <div className="w-full max-w-6xl h-full flex flex-col">
+            <div className="w-full max-w-7xl h-full flex flex-col">
                 <div className="flex justify-between items-center mb-10">
                     <div>
                         <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Panel de Inteligencia</h2>
                         <p className="text-cyan-400 text-[10px] font-bold tracking-[0.5em] uppercase mt-2">Gestión de Leads • @Consultoria.Martin</p>
                     </div>
                     <button
-                        onClick={handleClose}
+                        onClick={onClose}
                         className="px-6 py-2 border border-white/10 rounded-full text-white/40 hover:text-white hover:bg-white/5 uppercase text-[10px] tracking-widest transition-all"
                     >
                         Cerrar Monitor
@@ -116,50 +126,55 @@ const AdminDashboard = ({ isOpen, onClose }) => {
 
                 <div className="flex-grow overflow-auto custom-scrollbar border border-white/10 rounded-3xl bg-white/[0.02]">
                     <table className="w-full text-left">
-                        <thead className="sticky top-0 bg-[#050505] z-10">
+                        <thead className="sticky top-0 bg-[#000810] z-10">
                             <tr className="border-b border-white/10">
-                                <th className="p-6 text-[10px] font-black uppercase text-white/40 tracking-widest">ID / Fecha</th>
+                                <th className="p-6 text-[10px] font-black uppercase text-white/40 tracking-widest">Lead / Fecha</th>
                                 <th className="p-6 text-[10px] font-black uppercase text-white/40 tracking-widest">Cliente</th>
-                                <th className="p-6 text-[10px] font-black uppercase text-white/40 tracking-widest">Dirección / Zona</th>
+                                <th className="p-6 text-[10px] font-black uppercase text-white/40 tracking-widest">Ubicación</th>
                                 <th className="p-6 text-[10px] font-black uppercase text-white/40 tracking-widest">Contacto</th>
-                                <th className="p-6 text-[10px] font-black uppercase text-white/40 tracking-widest">Factura</th>
+                                <th className="p-6 text-[10px] font-black uppercase text-white/40 tracking-widest">Análisis OCR</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {leads.length === 0 ? (
+                        <tbody className="divide-y divide-white/5">
+                            {loading ? (
+                                <tr><td colSpan="5" className="p-20 text-center text-cyan-400 animate-pulse uppercase tracking-widest font-black text-xs">Sincronizando Base de Datos...</td></tr>
+                            ) : leads.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="p-20 text-center text-white/20 uppercase text-[10px] tracking-[0.5em]">No hay datos de entrada detectados</td>
+                                    <td colSpan="5" className="p-20 text-center text-white/20 uppercase text-[10px] tracking-[0.5em]">No se han detectado leads en el sistema</td>
                                 </tr>
-                            ) : [...leads].reverse().map(lead => (
-                                <tr key={lead.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                            ) : leads.map((lead, idx) => (
+                                <tr key={lead.id || idx} className="hover:bg-white/[0.02] transition-colors group">
                                     <td className="p-6">
-                                        <div className="text-xs text-white font-mono">{lead.id}</div>
-                                        <div className="text-[9px] text-white/30 lowercase mt-1">{new Date(lead.timestamp).toLocaleString()}</div>
+                                        <div className="text-[10px] text-white/70 font-mono mb-1">#{lead.id ? lead.id.toString().slice(-8) : idx}</div>
+                                        <div className="text-[9px] text-white/30 uppercase tracking-widest">
+                                            {lead.timestamp ? new Date(lead.timestamp).toLocaleDateString() : 'N/A'}
+                                            <span className="ml-2 opacity-50">{lead.timestamp ? new Date(lead.timestamp).toLocaleTimeString() : ''}</span>
+                                        </div>
                                     </td>
                                     <td className="p-6">
-                                        <div className="text-xs font-bold text-white uppercase">{lead.fullName}</div>
-                                        <div className="text-[9px] text-cyan-400/60 font-mono mt-1">{lead.cups || 'SIN CUPS'}</div>
+                                        <div className="text-xs font-black text-white uppercase tracking-tight group-hover:text-cyan-400 transition-colors">{lead.fullName || 'Anónimo'}</div>
+                                        <div className="text-[9px] text-white/40 font-mono mt-1">{lead.cups || 'SIN CUPS'}</div>
                                     </td>
                                     <td className="p-6">
-                                        <div className="text-xs text-white/70 max-w-[200px] truncate">{lead.address}</div>
-                                        <div className="text-[9px] text-orange-400 font-bold uppercase mt-1">{lead.zone}</div>
+                                        <div className="text-[10px] text-white/70 max-w-[250px] leading-relaxed italic">{lead.address || 'Mapa Directo'}</div>
+                                        {lead.zone && <div className="text-[8px] text-[#ff6a00] font-black uppercase mt-1 tracking-widest">{lead.zone}</div>}
                                     </td>
                                     <td className="p-6">
-                                        <div className="text-xs text-white">{lead.email}</div>
-                                        <div className="text-[9px] text-white/40 mt-1 font-mono">{lead.phone}</div>
+                                        <div className="text-xs text-white/80">{lead.email}</div>
+                                        <div className="text-[9px] text-white/30 mt-1 font-mono">{lead.phone}</div>
                                     </td>
                                     <td className="p-6">
                                         {lead.billFile ? (
                                             <a
-                                                href={`http://localhost:5001/${lead.billFile.replace(/\\/g, '/')}`}
+                                                href={lead.billFile.startsWith('http') ? lead.billFile : `http://localhost:5001/${lead.billFile}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="px-2 py-1 bg-green-500/20 text-green-400 text-[8px] font-black uppercase rounded hover:bg-green-500/40 transition-all cursor-pointer inline-block"
+                                                className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[9px] font-black uppercase rounded-lg hover:bg-cyan-500 hover:text-black transition-all cursor-pointer inline-flex items-center gap-2"
                                             >
-                                                Descargar/Ver
+                                                Ver Factura
                                             </a>
                                         ) : (
-                                            <span className="px-2 py-1 bg-white/5 text-white/20 text-[8px] font-black uppercase rounded">N/A</span>
+                                            <span className="text-[9px] text-white/10 uppercase font-bold tracking-widest">Sin adjunto</span>
                                         )}
                                     </td>
                                 </tr>

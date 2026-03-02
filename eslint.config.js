@@ -10,20 +10,39 @@ export default defineConfig([
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
     ],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
         sourceType: 'module',
       },
     },
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+    },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      ...reactHooks.configs.recommended.rules,
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true },
+      ],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]|motion|React' }],
+    },
+  },
+  {
+    files: ['server/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+      sourceType: 'commonjs',
     },
   },
 ])

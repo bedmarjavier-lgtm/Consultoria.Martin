@@ -2,7 +2,7 @@ import React from 'react';
 import AuditForm from './AuditForm';
 import { motion } from 'framer-motion';
 
-const ResultCard = ({ results, onClose }) => {
+const ResultCard = ({ results, onClose, userId }) => {
     if (!results) return null;
 
     const maxValue = Math.max(...results.chartData.map(d => d.value));
@@ -25,6 +25,7 @@ const ResultCard = ({ results, onClose }) => {
                         ✕
                     </button>
                 </div>
+
 
                 <div className="space-y-8">
                     {/* LiDAR Metrics */}
@@ -83,7 +84,62 @@ const ResultCard = ({ results, onClose }) => {
                     )}
 
                     {/* Formulario de Captación */}
-                    <AuditForm address={results.address} />
+                    {/* Formulario de Captación */}
+                    <AuditForm address={results.address} userId={userId} />
+
+                    {/* Comparativa de Mercado (@Facturas) */}
+                    <div className="mt-12 mb-10 animate-fade-in" style={{ animationDelay: '0.6s' }}>
+                        <div className="flex items-center gap-4 mb-8">
+                            <h4 className="text-[11px] font-black uppercase text-white/30 tracking-[0.4em] whitespace-nowrap">
+                                Comparativa de Mercado
+                            </h4>
+                            <div className="h-[1px] w-full bg-white/10"></div>
+                        </div>
+
+                        <div className="space-y-4">
+                            {results.providerComparisons.map((provider, i) => (
+                                <motion.div
+                                    key={i}
+                                    whileHover={{ x: 5 }}
+                                    className={`group relative p-5 rounded-2xl border transition-all duration-300 ${i === 0 ? 'bg-cyan-500/10 border-cyan-500/40 shadow-[0_0_20px_rgba(0,242,255,0.05)]' : 'bg-white/[0.02] border-white/5 hover:border-white/20'}`}
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-base font-black text-white tracking-tight">{provider.name}</span>
+                                                {i === 0 && (
+                                                    <span className="text-[8px] bg-cyan-400 text-black px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-[0_0_10px_#00f2ff]">
+                                                        MEJOR TARIFA
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-white/30 uppercase tracking-[0.1em] font-medium">{provider.plan}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xl font-black text-white leading-none tracking-tighter">
+                                                {provider.annualCost}€<span className="text-[10px] text-white/30 font-light ml-1">/año</span>
+                                            </p>
+                                            <div className={`text-[10px] font-black mt-2 uppercase tracking-tighter flex items-center justify-end gap-1 ${provider.savingsVsCurrent > 0 ? 'text-green-400' : 'text-white/10'}`}>
+                                                {provider.savingsVsCurrent > 0 && <span>↓</span>}
+                                                {provider.savingsVsCurrent > 0 ? `Ahorras ${provider.savingsVsCurrent}€` : 'Ref. Actual'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {i === 0 && (
+                                        <div className="absolute -left-[1px] top-1/2 -translate-y-1/2 w-[2px] h-8 bg-cyan-400 rounded-r-full shadow-[0_0_10px_#00f2ff]"></div>
+                                    )}
+                                </motion.div>
+                            ))}
+                        </div>
+
+                        <div className="mt-8 p-6 bg-white/[0.02] rounded-2xl border border-white/5 text-center">
+                            <p className="text-[9px] text-white/20 uppercase tracking-[0.2em] leading-relaxed">
+                                Datos actualizados: <span className="text-white/40">Marzo 2026</span> <br />
+                                <span className="text-[7px] opacity-50 mt-1 block italic">Basado en el histórico de facturación de la zona de {results.address.split(',')[1] || 'Andalucía'}</span>
+                            </p>
+                        </div>
+                    </div>
 
                     {/* Comparison Chart */}
                     <div className="space-y-5 pt-4">

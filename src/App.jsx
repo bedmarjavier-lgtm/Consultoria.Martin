@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import './index.css'
 
@@ -52,11 +52,8 @@ function App() {
       const isAltKey = e.altKey;
       const key = e.key.toLowerCase();
 
-      // Atajo 1: Cmd/Ctrl + Opt/Alt + A
-      // Atajo 2: Alt + L (Leads)
       if ((isCmdOrCtrl && isAltKey && key === 'a') || (isAltKey && key === 'l')) {
         e.preventDefault();
-        console.log("Acceso administrativo: Interruptor activado");
         setShowAdmin(prev => !prev);
       }
     };
@@ -64,85 +61,68 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  useEffect(() => {
-    console.log("Estado de AdminDashboard:", showAdmin ? "ABIERTO" : "CERRADO");
-  }, [showAdmin]);
-
-
-
   const handleSearch = async (e) => {
-    if (e.key === 'Enter' && searchQuery) {
-      setLoading(true)
-      try {
-        // @Consuloria.Martin: Refuerzo de Geocoding Exacto
-        let query = searchQuery.trim();
-        if (!query.toLowerCase().includes('españa')) {
-          query += ', España';
+    if (e) e.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    setLoading(true);
+    setResults(null);
+
+    try {
+      // Nominatim: Búsqueda de alta precisión
+      const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&countrycodes=es`;
+
+      const response = await fetch(searchUrl, {
+        method: 'GET',
+        headers: { 'Accept-Language': 'es' }
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        // Algoritmo de selección: Priorizar números de portal y edificios
+        const preciseResult = data.find(item =>
+          (item.class === 'building' || item.address.house_number) &&
+          item.type !== 'administrative'
+        ) || data[0];
+
+        const lat = parseFloat(preciseResult.lat);
+        const lon = parseFloat(preciseResult.lon);
+
+        setMarkerPos([lat, lon]);
+        setMapCenter([lat, lon]);
+
+        const roundedLat = Math.round(lat * 10000) / 10000;
+        const roundedLon = Math.round(lon * 10000) / 10000;
+        const seed = (Math.abs(roundedLat) * 1000 + Math.abs(roundedLon) * 1000) % 1;
+        const detectedArea = Math.floor(40 + seed * 90);
+        const randomPrice = 0.14 + (Math.random() * 0.05);
+        const impact = calculateSolarImpact(detectedArea, randomPrice);
+
+        const finalResult = { ...impact, area: detectedArea, address: preciseResult.display_name };
+
+        // Timeout para que el usuario perciba que algo ha pasado
+        setTimeout(() => {
+          setResults(finalResult);
+          setShowSearch(false);
+          toast.success("Ubicación Encontrada");
+        }, 300);
+
+        if (session) {
+          saveAnalysis(finalResult);
         }
-
-        let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1&countrycodes=es`)
-        let data = await response.json()
-
-        // Sistema de Reintento Inteligente: Si falla la búsqueda exacta (ej. por número de portal inexistente en el mapa)
-        if (data.length === 0) {
-          console.log("Intento 1 fallido, probando búsqueda flexible...");
-          // Eliminar el número de portal para buscar la calle general
-          const flexibleQuery = query.replace(/\s\d+([^\d]|$)/, ' ').trim();
-          const responseFlex = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(flexibleQuery)}&limit=1&addressdetails=1&countrycodes=es`);
-          data = await responseFlex.json();
-        }
-
-        if (data.length > 0) {
-          const result = data[0];
-
-          // Validación de Credibilidad: ¿Es una estructura o dirección válida?
-          const validTypes = ['house', 'building', 'residential', 'apartments', 'industrial', 'commercial', 'retail', 'office', 'amenity', 'shop', 'school', 'hospital', 'tourism'];
-          const resultAddress = result.address || {};
-          const isStructure = validTypes.includes(result.type) || validTypes.includes(result.class) || resultAddress.house_number;
-
-          const urbanKeywords = ['Calle', 'Avenida', 'Plaza', 'Vía', 'Carrer', 'Rúa', 'Prolongación', 'Prolongacion', 'Carretera', 'Travesía', 'Travesia', 'Camino', 'Paseo', 'Ronda'];
-          const isUrban = result.display_name && urbanKeywords.some(keyword => result.display_name.includes(keyword));
-
-          if (!isStructure && !isUrban) {
-            setResults(null);
-            setMarkerPos(null);
-            setLoading(false);
-            alert("Ubicación detectada como zona no urbanizada o exterior. Por favor, introduce una dirección de calle específica.");
-            return;
-          }
-
-          const lat = parseFloat(result.lat);
-          const lon = parseFloat(result.lon);
-
-          if (isNaN(lat) || isNaN(lon)) {
-            throw new Error("Invalid coordinates returned");
-          }
-
-          const newPos = [lat, lon];
-          setMapCenter(newPos);
-          setMarkerPos(newPos);
-
-          // Sincronización de Auditoría Automática - Determinismo por tejado (redondeo a 4 decimales ~11m)
-          const roundedLat = Math.round(lat * 10000) / 10000;
-          const roundedLon = Math.round(lon * 10000) / 10000;
-          const seed = (Math.abs(roundedLat) * 1000 + Math.abs(roundedLon) * 1000) % 1;
-          const detectedArea = Math.floor(40 + seed * 90);
-
-          const randomPrice = 0.14 + (Math.random() * 0.05);
-          const impact = calculateSolarImpact(detectedArea, randomPrice);
-          setResults({ ...impact, area: detectedArea, address: result.display_name });
-        } else {
-          setResults(null);
-          setMarkerPos(null);
-          alert("No se han encontrado resultados para esta dirección. Asegúrate de incluir el nombre correcto de la calle o prueba a buscar solo la calle y el municipio.");
-        }
-      } catch (error) {
-        console.error("Critical: Geocoding failure", error)
-      } finally {
-        setLoading(false)
+      } else {
+        toast.error("Sin resultados. Prueba: Calle, Número, Ciudad.");
       }
+    } catch (error) {
+      console.error("Geocoding failure", error);
+      toast.error("Error en la conexión. Reintenta.");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   const handleMapClick = async (coords) => {
     setLoading(true)
@@ -152,27 +132,8 @@ function App() {
       const [lat, lon] = coords
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
       const data = await response.json()
-
-      // Validación de Credibilidad en Click: Filtrar campo/mar/zonas vacías
-      const validTypes = ['house', 'building', 'residential', 'apartments', 'industrial', 'commercial', 'retail', 'office', 'amenity', 'shop', 'school', 'hospital', 'tourism'];
-
-      const isStructure = validTypes.includes(data.type) ||
-        validTypes.includes(data.class) ||
-        (data.address && data.address.house_number);
-
-      const urbanKeywords = ['Calle', 'Avenida', 'Plaza', 'Vía', 'Carrer', 'Rúa', 'Prolongación', 'Prolongacion', 'Carretera', 'Travesía', 'Travesia', 'Camino', 'Paseo', 'Ronda'];
-      const isUrban = data.display_name && urbanKeywords.some(keyword => data.display_name.includes(keyword));
-
-      if (!isStructure && !isUrban) {
-        setResults(null);
-        setMarkerPos(null);
-        setLoading(false);
-        return;
-      }
-
       const address = data.display_name || `Coordenadas: ${lat.toFixed(4)}, ${lon.toFixed(4)}`
 
-      // Sincronización de Auditoría Automática - Determinismo por tejado (redondeo a 4 decimales ~11m)
       const roundedLat = Math.round(lat * 10000) / 10000;
       const roundedLon = Math.round(lon * 10000) / 10000;
       const seed = (Math.abs(roundedLat) * 1000 + Math.abs(roundedLon) * 1000) % 1;
@@ -180,7 +141,12 @@ function App() {
       const randomPrice = 0.14 + (Math.random() * 0.05)
       const impact = calculateSolarImpact(detectedArea, randomPrice)
 
-      setResults({ ...impact, area: detectedArea, address })
+      const finalResult = { ...impact, area: detectedArea, address };
+      setResults(finalResult);
+
+      if (session) {
+        saveAnalysis(finalResult);
+      }
     } catch (error) {
       console.error("Reverse geocoding failure", error)
     } finally {
@@ -188,23 +154,36 @@ function App() {
     }
   }
 
-  const logoClicks = useRef(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleLogoClick = () => {
-    logoClicks.current++;
-    if (logoClicks.current >= 3) {
-      setShowAdmin(true);
-      logoClicks.current = 0;
-    }
-    setTimeout(() => { logoClicks.current = 0; }, 1000);
+    setResults(null);
+    setMarkerPos(null);
+    setMapCenter([37.3891, -4.7636]);
+    setSearchQuery('');
+    setLoading(false);
+    setShowSearch(false);
+    setShowUserDashboard(false); // Clear user dashboard state
+    setShowAdmin(false); // Clear admin dashboard state
+    setShowTerms(false); // Clear terms state
+    setShowPrivacy(false); // Clear privacy state
+    toast.success('Información reiniciada', {
+      style: { background: '#00050a', color: '#fff', border: '1px solid #ffffff10' }
+    });
   };
 
-  const saveAnalysis = async (data) => {
+  const saveAnalysis = useCallback(async (data) => {
     try {
       if (!session) return;
       const userId = session.user.id;
 
-      // 1. Guardar en solar_analysis
-      const { data: analysisEntry, error: analysisError } = await supabase
+      const { error: analysisError } = await supabase
         .from('solar_analysis')
         .insert({
           user_id: userId,
@@ -218,56 +197,42 @@ function App() {
 
       if (analysisError) throw analysisError;
 
-      // 2. Guardar en financial_audit vinculado al análisis
-      const { error: auditError } = await supabase
-        .from('financial_audit')
-        .insert({
-          analysis_id: analysisEntry.id,
-          current_bill_avg: Math.round(data.currentPrice * data.estimatedConsumption / 12),
-          optimized_tariff: "Mercado Optimizado",
-          annual_savings_eur: data.annualSavings
-        });
-
-      if (auditError) throw auditError;
-
-      // 3. Opcional: Asegurar que el perfil existe
       await supabase.from('profiles').upsert({
         id: userId,
         email: session.user.email,
         full_name: session.user.user_metadata?.full_name || 'Consultor OceanX'
       }, { onConflict: 'id' });
 
-      toast.success(`Sincronización Completa: ${data.address.split(',')[0]}`, {
-        duration: 4000,
-        position: 'top-right',
-        style: {
-          background: '#000810',
-          color: '#00f2ff',
-          border: '1px solid rgba(0, 242, 255, 0.2)',
-          fontSize: '10px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          fontWeight: 'bold'
-        }
-      });
+      toast.success(`Sincronización Completa: ${data.address.split(',')[0]}`);
     } catch (error) {
       console.error('Error in unified sync:', error);
-      toast.error('Fallo en sincronización OceanX Cloud');
     }
-  };
+  }, [session]);
 
   useEffect(() => {
     if (results && results.address) {
       saveAnalysis(results);
     }
-  }, [results]);
+  }, [results, saveAnalysis]);
 
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setSession(null);
+      setShowGlobe(true);
+      setShowUserDashboard(false);
+      setResults(null);
+      setMarkerPos(null);
+      toast.success('Sesión finalizada correctamente');
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-[#00050a] flex flex-col lg:overflow-hidden">
       <Toaster />
-      {/* Etiqueta H1 Única para SEO (Oculta visualmente pero presente para crawlers) */}
-      <h1 className="sr-only">Consultoria Martin - Auditoría Energética y Autoconsumo Solar</h1>
+      <h1 className="sr-only">Consultoria Martin - Auditoría Energética</h1>
 
       <AnimatePresence>
         {showGlobe && (
@@ -288,7 +253,7 @@ function App() {
 
             <AnimatePresence>
               {!session && (
-                <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6 bg-black/20">
+                <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6 bg-black/20 text-black">
                   <Login onLogin={() => {
                     setIsAuthenticating(true);
                     setTimeout(() => {
@@ -302,7 +267,6 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Main Experience HUD / Normal Web on Mobile */}
       {!showGlobe && (
         <motion.main
           initial={{ opacity: 0 }}
@@ -310,181 +274,148 @@ function App() {
           transition={{ delay: 1, duration: 1 }}
           className="flex flex-col relative w-full min-h-screen lg:h-screen lg:overflow-hidden overflow-y-auto overflow-x-hidden scroll-smooth"
         >
-          {/* Header Superior Estilo Gymshark */}
-          <header className="fixed top-0 left-0 w-full p-6 md:px-12 md:py-8 z-[2000] flex justify-between items-center bg-[#00050a]/95 border-b border-white/5 backdrop-blur-3xl lg:bg-transparent lg:border-none lg:backdrop-blur-none">
-
-            {/* Izquierda: Menu y Buscar */}
-            <div className="flex items-center gap-6 md:gap-10">
-              <button className="text-white hover:text-cyan-400 pb-1 transition-colors">
-                <Menu size={24} strokeWidth={2.5} />
-              </button>
+          <header className="fixed top-0 left-0 w-full p-4 md:px-12 md:py-8 z-[2000] grid grid-cols-3 items-center bg-transparent border-none backdrop-blur-sm lg:backdrop-blur-none">
+            {/* Izquierda: Buscador (Movido para no molestar al logo) */}
+            <div className="flex items-center justify-start">
               <button
                 onClick={() => setShowSearch(!showSearch)}
-                className={`text-white hover:text-cyan-400 pb-1 transition-colors ${showSearch ? 'text-cyan-400' : ''}`}
+                className={`transition-all hover:scale-110 active:scale-95 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] ${showSearch ? 'text-cyan-400' : 'text-white/70 hover:text-cyan-400'}`}
               >
                 <Search size={22} strokeWidth={2.5} />
               </button>
             </div>
 
-            {/* Centro: Logo */}
-            <div className="absolute left-1/2 -translate-x-1/2 text-center animate-fade-in group cursor-pointer" onClick={handleLogoClick}>
-              <div className="text-xl md:text-2xl lg:text-3xl font-black tracking-tighter uppercase font-montserrat leading-tight">
-                <span className="text-white">Consultoria.</span>
-                <span className="text-orange-gradient">Martin</span>
+            {/* Centro: Logo Clickable para Reset */}
+            <div
+              onClick={handleLogoClick}
+              className="text-center animate-fade-in cursor-pointer hover:scale-105 transition-transform flex flex-col items-center justify-center"
+            >
+              <div className="text-xl md:text-2xl lg:text-3xl font-black tracking-tighter uppercase font-montserrat leading-tight text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                Consultoria.<span className="text-[#ff6a00]">Martin</span>
               </div>
-              <p className="text-white/20 tracking-[0.5em] uppercase text-[6px] md:text-[8px] font-bold hidden md:block">
+              <p className="text-white/40 tracking-[0.5em] uppercase text-[6px] md:text-[8px] font-bold hidden md:block mt-1">
                 CENTRAL INTELLIGENCE
               </p>
             </div>
 
-            {/* Derecha: Usuario y Centro Proyectos (Admin/Briefcase) */}
-            <div className="flex items-center gap-6 md:gap-10">
+            {/* Derecha: Usuario y Admin */}
+            <div className="flex items-center justify-end gap-6 md:gap-10">
               <button
                 onClick={() => setShowUserDashboard(true)}
-                className="text-white hover:text-cyan-400 pb-1 transition-colors relative group"
+                className="text-white/70 hover:text-cyan-400 transition-all hover:scale-110 active:scale-95 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] relative"
               >
                 <UserIcon size={22} strokeWidth={2.5} />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-[0_0_10px_#00f2ff]"></span>
               </button>
-              <button
-                onClick={() => setShowAdmin(true)}
-                className="text-white hover:text-orange-400 pb-1 transition-colors group relative"
-              >
-                <Briefcase size={22} strokeWidth={2.5} />
-              </button>
-            </div>
 
-            {/* Buscador Desplegable (Gymshark style search) */}
-            <AnimatePresence>
-              {showSearch && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="absolute top-full left-0 w-full bg-[#000810]/95 backdrop-blur-3xl p-6 md:p-10 border-t border-white/5"
+              {session?.user?.email === 'bedmarjavier@gmail.com' && (
+                <button
+                  onClick={() => setShowAdmin(true)}
+                  className="text-white/70 hover:text-orange-400 transition-all hover:scale-110 active:scale-95 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]"
                 >
-                  <div className="max-w-4xl mx-auto relative group">
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="INTRODUCIR DIRECCIÓN PARA AUDITORÍA..."
-                      className="w-full bg-white/5 border-b border-white/20 px-4 py-6 text-xl md:text-3xl font-black tracking-tighter text-cyan-400 placeholder:text-white/10 uppercase focus:outline-none focus:border-cyan-400 transition-all"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSearch(e);
-                          setShowSearch(false);
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={() => setShowSearch(false)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
-                    >
-                      <X size={32} />
-                    </button>
-                  </div>
-                </motion.div>
+                  <Briefcase size={22} strokeWidth={2.5} />
+                </button>
               )}
-            </AnimatePresence>
+            </div>
 
           </header>
 
-          <div className="flex flex-col lg:flex-row h-full relative">
+          <AnimatePresence>
+            {showSearch && (
+              <div
+                className={isMobile
+                  ? "fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                  : "fixed top-32 left-1/2 -translate-x-1/2 w-[600px] z-[5000]"
+                }
+              >
+                <motion.div
+                  initial={isMobile ? { opacity: 0, scale: 0.9, y: 30 } : { opacity: 0, y: -20 }}
+                  animate={isMobile ? { opacity: 1, scale: 1, y: 0 } : { opacity: 1, y: 0 }}
+                  exit={isMobile ? { opacity: 0, scale: 0.9, y: 30 } : { opacity: 0, y: -20 }}
+                  className="bg-black/95 backdrop-blur-3xl p-10 md:p-14 rounded-[3.5rem] border-2 border-white/5 shadow-[0_40px_100px_rgba(0,0,0,0.9)] w-full relative pointer-events-auto"
+                >
+                  <div className="relative flex flex-col items-center">
+                    <div className="text-[10px] font-black tracking-[0.5em] text-cyan-400 uppercase mb-8 text-center animate-pulse">SISTEMA DE ESCANEO ACTIVO</div>
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Calle y Número, Ciudad..."
+                      className="w-full bg-transparent border-b-2 border-white/5 px-0 py-6 text-2xl md:text-5xl font-black tracking-tighter text-white placeholder:text-white/10 uppercase focus:outline-none focus:border-cyan-400 transition-all text-center mb-10"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSearch(e);
+                      }}
+                    />
+                    <button
+                      onClick={handleSearch}
+                      disabled={loading}
+                      className="px-12 py-5 bg-cyan-400 text-black rounded-full text-[12px] font-black uppercase tracking-[0.3em] transition-all hover:scale-105 active:scale-95 disabled:opacity-50 w-full md:w-auto"
+                    >
+                      {loading ? 'PROCESANDO...' : 'INICIAR AUDITORÍA'}
+                    </button>
 
-            {/* Mapa: En móvil es una sección fija, en desktop es el fondo completo */}
-            <section className="order-1 lg:order-none relative w-full h-[50vh] lg:h-full lg:absolute lg:inset-0 lg:z-0 border-y lg:border-none border-white/5">
-              <MapComponent
-                center={mapCenter}
-                markerPos={markerPos}
-                onMapClick={handleMapClick}
-              />
+                    <button
+                      onClick={() => setShowSearch(false)}
+                      className="mt-8 text-white/30 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all"
+                    >
+                      CERRAR PANEL
+                    </button>
+
+                    <button
+                      onClick={() => setShowSearch(false)}
+                      className="absolute -top-6 -right-6 w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all backdrop-blur-xl"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+
+          <div className="relative w-full h-full flex-1 overflow-x-hidden">
+            {/* Mapa como Fondo Total (Z-0) */}
+            <section className="fixed inset-0 z-0 h-[100svh] w-full">
+              <MapComponent center={mapCenter} markerPos={markerPos} onMapClick={handleMapClick} isMobile={isMobile} />
             </section>
 
-            {/* Contenedor Flex para Sidebars en Desktop y Stack Scrollable en Mobile */}
-            <div className="order-2 lg:order-none relative w-full lg:h-full flex flex-col lg:flex-row justify-between lg:pointer-events-none p-6 lg:p-10 gap-10 lg:gap-0">
+            {/* Capa de Contenido (Z-10) */}
+            <div className="relative z-10 w-full min-h-[100svh] pointer-events-none flex flex-col">
 
-              {/* Panel de Red e Insights (Izquierda) */}
-              <aside className="relative lg:absolute left-0 lg:left-10 top-0 lg:top-32 w-full lg:w-[450px] z-[1500] pointer-events-auto flex flex-col gap-10 lg:max-h-[calc(100vh-180px)] lg:overflow-y-auto lg:custom-scrollbar lg:pr-4 mb-8 lg:mb-0">
-                <section className="glass-card animate-fade-in border-l-2 border-l-[var(--accent-orange)] !py-6 !px-8">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-[10px] tracking-[0.4em] uppercase text-white/40 font-bold">Auditoría Energética</h2>
-                    <div className="w-2 h-2 rounded-full bg-[var(--accent-orange)] pulse-marker shadow-[0_0_10px_var(--accent-orange)]"></div>
-                  </div>
-                  <div className="mb-4 text-left">
-                    <span className="text-[9px] text-white/20 block mb-1 uppercase tracking-widest">Valor de Red Actual</span>
-                    <p className="text-4xl lg:text-5xl font-black tracking-tighter text-white">0.14<span className="text-xs font-light text-white/30 ml-2 italic">eur/kwh</span></p>
-                  </div>
-                  <div className="h-[1px] w-full bg-white/5 my-4"></div>
-                  <div className="flex justify-between text-[9px] text-white/30 uppercase tracking-widest px-1">
-                    <span>Compensación</span>
-                    <span className="text-[var(--accent-orange)] font-bold">0.06 €/kWh</span>
-                  </div>
-                </section>
+              {/* Espaciador dinámico: más grande en móvil para ver el mapa */}
+              <div className="h-[65vh] lg:h-[20vh] shrink-0 pointer-events-none" />
 
-                <section className="glass-card animate-fade-in !p-6" style={{ animationDelay: '0.2s' }}>
+              <div className="flex flex-col lg:flex-row justify-between w-full flex-1 relative px-4 md:px-10 pb-24 md:pb-10 gap-6">
+                <aside className="w-full lg:w-[400px] pointer-events-auto flex flex-col gap-6">
                   <SmartInsights results={results} />
-                </section>
-
-                <section className="animate-fade-in" style={{ animationDelay: '0.4s' }}>
                   <ConsumptionChart />
-                </section>
-              </aside>
+                </aside>
 
-              {/* Contenedor de Resultado (Derecha) */}
-              <div className="relative lg:absolute right-0 lg:right-10 top-0 lg:top-32 w-full lg:w-auto z-[1500] pointer-events-auto">
-                <AnimatePresence>
-                  {results && (
-                    <ResultCard results={results} onClose={() => setResults(null)} />
-                  )}
-                </AnimatePresence>
+                <div className="w-full lg:w-auto pointer-events-auto">
+                  <AnimatePresence>
+                    {results && (
+                      <ResultCard results={results} onClose={() => setResults(null)} userId={session?.user?.id} />
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
           </div>
+        </motion.main >
+      )
+      }
 
-          {/* Footer HUD (Visible al final del scroll en móvil o fijo en desktop) */}
-          <footer className="relative lg:absolute bottom-0 left-0 w-full bg-[#00050a] lg:bg-transparent py-10 lg:py-10 px-6 md:px-12 flex flex-col md:flex-row justify-between items-center md:items-end gap-6 z-[2000] border-t lg:border-none border-white/5">
-            <div className="text-[8px] md:text-[9px] tracking-[0.4em] md:tracking-[0.6em] text-white/10 uppercase font-light text-center md:text-left max-w-sm leading-relaxed font-montserrat hidden sm:block">
-              Consultoria.Martin • Central Intelligence <br />
-              <span className="text-[6px] tracking-[0.2em] text-white/5">Modo de Inspección Estricta: Solo Direcciones Validadas.</span>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-6 md:gap-10">
-              <button
-                onClick={() => setShowPrivacy(true)}
-                className="text-[9px] md:text-[10px] tracking-[0.3em] md:tracking-[0.4em] text-white/30 uppercase font-bold hover:text-cyan-400 transition-colors"
-              >
-                Privacidad
-              </button>
-              <button
-                onClick={() => setShowTerms(true)}
-                className="text-[9px] md:text-[10px] tracking-[0.3em] md:tracking-[0.4em] text-white/30 uppercase font-bold hover:text-cyan-400 transition-colors"
-              >
-                Condiciones
-              </button>
-            </div>
-          </footer>
-
-        </motion.main>
-      )}
-
-      {/* Modales Globales (Accesibles desde cualquier sitio) */}
-      <AdminDashboard isOpen={showAdmin} onClose={() => setShowAdmin(false)} />
-      <UserDashboard isOpen={showUserDashboard} onClose={() => setShowUserDashboard(false)} />
+      <AdminDashboard isOpen={showAdmin} onClose={() => setShowAdmin(false)} session={session} />
+      <UserDashboard isOpen={showUserDashboard} onClose={() => setShowUserDashboard(false)} onLogout={handleLogout} session={session} />
       <Terms isOpen={showTerms} onClose={() => setShowTerms(false)} />
       <Privacy isOpen={showPrivacy} onClose={() => setShowPrivacy(false)} />
 
       <style jsx="true">{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 1s forwards; }
       `}</style>
-    </div>
+    </div >
   )
 }
 

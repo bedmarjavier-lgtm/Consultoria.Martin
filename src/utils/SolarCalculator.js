@@ -49,6 +49,18 @@ export const calculateSolarImpact = (area, priceKWhInput = 0.1434, radiation = 4
     const totalAnnualSavings = directSavings + surplusSavings + tariffOptimizationSavings;
     const finalCost = Math.max(0, currentAnnualCost - totalAnnualSavings);
 
+    const providerComparisons = [
+        { name: 'Iberdrola', plan: 'Plan Online', price: 0.135, setup: 0 },
+        { name: 'Endesa', plan: 'One Luz', price: 0.142, setup: 0 },
+        { name: 'TotalEnergies', plan: 'A Tu Aire Siempre', price: 0.128, setup: 0 },
+        { name: 'Gana Energía', plan: 'Tarifa 24h', price: 0.115, setup: 0 },
+        { name: 'Naturgy', plan: 'Tarifa Digital', price: 0.138, setup: 0 }
+    ].map(p => ({
+        ...p,
+        annualCost: Math.round(estimatedConsumption * p.price),
+        savingsVsCurrent: Math.round((estimatedConsumption * priceKWh) - (estimatedConsumption * p.price))
+    })).sort((a, b) => a.annualCost - b.annualCost);
+
     return {
         area,
         numPanels,
@@ -59,6 +71,7 @@ export const calculateSolarImpact = (area, priceKWhInput = 0.1434, radiation = 4
         priceAnomaly,
         currentPrice: priceKWh,
         marketPrice,
+        providerComparisons,
         chartData: [
             { name: 'Gasto Inicial', value: Math.round(currentAnnualCost), color: '#ffffff20' },
             { name: 'Optimización Factura', value: Math.round(currentAnnualCost - (estimatedConsumption * (priceKWh - optimizedPrice))), color: '#33ccff80' },

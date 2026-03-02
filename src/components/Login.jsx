@@ -96,9 +96,10 @@ const Login = ({ onLogin }) => {
 
                     <button
                         type="submit"
-                        className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl text-white text-[11px] font-black uppercase tracking-[0.3em] shadow-[0_0_20px_rgba(0,242,255,0.2)] hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 mt-4"
+                        disabled={loading}
+                        className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl text-white text-[11px] font-black uppercase tracking-[0.3em] shadow-[0_0_20px_rgba(0,242,255,0.2)] hover:shadow-[0_0_30px_rgba(0,242,255,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 mt-4 disabled:opacity-50"
                     >
-                        {isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                        {loading ? 'Procesando...' : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}
                     </button>
                 </form>
 

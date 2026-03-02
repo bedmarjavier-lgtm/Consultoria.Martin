@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const AuditForm = ({ address }) => {
+const AuditForm = ({ address, userId }) => {
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -40,6 +40,7 @@ const AuditForm = ({ address }) => {
         data.append('phone', formData.phone);
         data.append('cups', formData.cups);
         data.append('address', address);
+        if (userId) data.append('userId', userId);
         if (file) data.append('bill', file);
 
         try {
@@ -120,6 +121,19 @@ const AuditForm = ({ address }) => {
                         value={formData.fullName}
                         onChange={handleChange}
                         placeholder="Introduce tu nombre..."
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 focus:outline-none focus:border-[var(--accent-orange)]/50 transition-all font-montserrat"
+                    />
+                </div>
+
+                <div>
+                    <label className="text-[9px] uppercase tracking-widest text-white/30 block mb-1.5 ml-1">Email de Contacto</label>
+                    <input
+                        type="email"
+                        name="email"
+                        required
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="tu@email.com"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder:text-white/10 focus:outline-none focus:border-[var(--accent-orange)]/50 transition-all font-montserrat"
                     />
                 </div>

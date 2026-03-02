@@ -21,11 +21,20 @@ function MapController({ center }) {
     const isFirstRender = React.useRef(true);
 
     useEffect(() => {
-        const handleResize = () => {
+        // Forzar recálculo de tamaño al montar y después de un breve delay
+        // Esto soluciona las "bandas negras" cuando el contenedor tarda en renderizar
+        const triggerInvalidate = () => {
             map.invalidateSize();
         };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+
+        triggerInvalidate();
+        const timer = setTimeout(triggerInvalidate, 500);
+
+        window.addEventListener('resize', triggerInvalidate);
+        return () => {
+            window.removeEventListener('resize', triggerInvalidate);
+            clearTimeout(timer);
+        };
     }, [map]);
 
     useEffect(() => {
@@ -54,13 +63,13 @@ function MapEvents({ onMapClick }) {
 }
 
 const spainBounds = [
-    [27.0, -19.0], // Sur (Canarias) y Oeste
-    [44.0, 5.0]    // Norte y Este (Baleares)
+    [20.0, -25.0], // Sur (Canarias expandido)
+    [50.0, 15.0]    // Norte y Este (Baleares expandido)
 ];
 
-const MapComponent = ({ center, markerPos, onMapClick }) => {
+const MapComponent = ({ center, markerPos, onMapClick, isMobile }) => {
     return (
-        <div className="w-full h-full relative overflow-hidden">
+        <div className="w-full h-full relative overflow-hidden bg-[#00050a]">
             {/* Scanline HUD Overlay */}
 
 
@@ -69,7 +78,7 @@ const MapComponent = ({ center, markerPos, onMapClick }) => {
                 zoom={19}
                 minZoom={6}
                 maxBounds={spainBounds}
-                maxBoundsViscosity={1.0}
+                maxBoundsViscosity={0.5}
                 className="w-full h-full"
                 zoomControl={false}
                 bounceAtZoomLimits={true}
@@ -77,7 +86,7 @@ const MapComponent = ({ center, markerPos, onMapClick }) => {
                 updateWhenIdle={true}
                 fadeAnimation={false}
             >
-                {/* Capa Base: Satélite puro - Optimizada con buffer alto y sin Retina */}
+                {/* Capa Base: Satélite puro */}
                 <TileLayer
                     url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
                     attribution='&copy; Google Maps'
@@ -85,7 +94,7 @@ const MapComponent = ({ center, markerPos, onMapClick }) => {
                     detectRetina={false}
                     keepBuffer={12}
                 />
-                {/* Capa de Etiquetas: Solo sobre España - Optimizada con filtro de POIs */}
+                {/* Capa de Etiquetas */}
                 <TileLayer
                     url="https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}&style=feature:poi|visibility:off|feature:transit|visibility:off|feature:water|element:labels|visibility:off"
                     attribution='&copy; Google Maps'
@@ -95,14 +104,14 @@ const MapComponent = ({ center, markerPos, onMapClick }) => {
                     keepBuffer={12}
                 />
                 <MapController center={center} />
-                <MapEvents onMapClick={onMapClick} />
+                {!isMobile && <MapEvents onMapClick={onMapClick} />}
                 {markerPos && (
                     <Marker position={markerPos}>
                     </Marker>
                 )}
             </MapContainer>
 
-            {/* Overlay de HUD sutil (opcional para mantener estética sin oscurecer) */}
+            {/* Overlay de HUD sutil */}
             <div className="absolute inset-0 pointer-events-none z-[400] shadow-[inset_0_0_50px_rgba(0,0,0,0.3)]"></div>
         </div>
     );
