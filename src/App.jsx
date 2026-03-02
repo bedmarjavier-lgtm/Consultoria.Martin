@@ -23,7 +23,10 @@ function App() {
   const [showAdmin, setShowAdmin] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [showPrivacy, setShowPrivacy] = useState(false)
-  const [mapCenter, setMapCenter] = useState([37.3891, -4.7636])
+  const SPAIN_CENTER = [40.4165, -3.7026]; // Madrid, centro geográfico de España
+  const SPAIN_ZOOM = 6;
+  const [mapCenter, setMapCenter] = useState(SPAIN_CENTER)
+  const [mapZoom, setMapZoom] = useState(SPAIN_ZOOM)
   const [markerPos, setMarkerPos] = useState(null)
   const [results, setResults] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -32,14 +35,22 @@ function App() {
   const [showSearch, setShowSearch] = useState(false)
   const [session, setSession] = useState(null)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [isRecovery, setIsRecovery] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // El usuario llegó desde el enlace del email de recuperación
+        setIsRecovery(true)
+        setSession(session) // La sesión temporal OTP ya está activa
+      } else {
+        setIsRecovery(false)
+        setSession(session)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -61,87 +72,314 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  /**
+   * snapToBuilding: Dado un punto lat/lon (puede estar en la calle),
+   * consulta Overpass API para encontrar el edificio OSM más cercano.
+   * Si se pasa houseNumber, prioriza el edificio que tenga ese addr:housenumber.
+   * Calcula el centroide real y el área real en m² (Shoelace).
+   * @param {number} lat
+   * @param {number} lon
+   * @param {string|null} houseNumber  — número de portal para priorizar (opcional)
+   * @returns {{ lat, lon, areaMq, found }}
+   */
+  const snapToBuilding = async (lat, lon, houseNumber = null) => {
+    // Helper: calcula centroide + área de un array de nodos {lat,lon}
+    const processPolygon = (nodes) => {
+      const cLat = nodes.reduce((s, n) => s + n.lat, 0) / nodes.length;
+      const cLon = nodes.reduce((s, n) => s + n.lon, 0) / nodes.length;
+      const DEG_LAT = 111320;
+      const DEG_LON = 111320 * Math.cos(cLat * Math.PI / 180);
+      let area = 0;
+      for (let i = 0; i < nodes.length; i++) {
+        const j = (i + 1) % nodes.length;
+        const xi = (nodes[i].lon - cLon) * DEG_LON;
+        const yi = (nodes[i].lat - cLat) * DEG_LAT;
+        const xj = (nodes[j].lon - cLon) * DEG_LON;
+        const yj = (nodes[j].lat - cLat) * DEG_LAT;
+        area += xi * yj - xj * yi;
+      }
+      return { cLat, cLon, areaMq: Math.round(Math.abs(area) / 2) };
+    };
+
+    // Helper: ejecuta la query de Overpass con un radio dado (con servidores de respaldo)
+    const OVERPASS_SERVERS = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    ];
+    const queryOverpass = async (radius) => {
+      const q = `[out:json][timeout:10];(way(around:${radius},${lat},${lon})["building"];relation(around:${radius},${lat},${lon})["building"];);out body geom;`;
+      for (const server of OVERPASS_SERVERS) {
+        try {
+          const r = await fetch(server, {
+            method: 'POST', body: q,
+            headers: { 'Content-Type': 'text/plain' },
+            signal: AbortSignal.timeout(11000)
+          });
+          if (!r.ok) continue;
+          const d = await r.json();
+          return d.elements || [];
+        } catch { continue; }
+      }
+      return [];
+    };
+
+    try {
+      // Intento 1: radio 80m
+      let elements = await queryOverpass(80);
+      // Intento 2: si no hay resultado, ampliar radio a 150m
+      if (elements.length === 0) {
+        elements = await queryOverpass(150);
+      }
+      if (elements.length === 0) return { lat, lon, areaMq: null, found: false };
+
+      // Filtrar elementos sin geometría válida
+      const valid = elements.filter(el => el.geometry && el.geometry.length >= 3);
+      if (valid.length === 0) return { lat, lon, areaMq: null, found: false };
+
+      // Calcular datos de cada edificio
+      const buildings = valid.map(el => {
+        const { cLat, cLon, areaMq } = processPolygon(el.geometry);
+        const dist = Math.hypot(cLat - lat, cLon - lon);
+        const hn = el.tags?.['addr:housenumber'] || el.tags?.['addr:street_number'] || null;
+        return { cLat, cLon, areaMq, dist, houseNumberOSM: hn, el };
+      });
+
+      let best = null;
+
+      // Prioridad 1: edificio cuyo número de portal coincide exactamente con el buscado
+      if (houseNumber) {
+        best = buildings
+          .filter(b => b.houseNumberOSM === String(houseNumber))
+          .sort((a, b) => a.dist - b.dist)[0] || null;
+      }
+
+      // Prioridad 2: edificio más cercano que NO sea enorme (>8000m² = manzana entera)
+      if (!best) {
+        best = buildings
+          .filter(b => b.areaMq < 8000)
+          .sort((a, b) => a.dist - b.dist)[0] || null;
+      }
+
+      // Prioridad 3: el más cercano sin importar tamaño
+      if (!best) {
+        best = buildings.sort((a, b) => a.dist - b.dist)[0];
+      }
+
+      return { lat: best.cLat, lon: best.cLon, areaMq: best.areaMq, found: true };
+    } catch {
+      return { lat, lon, areaMq: null, found: false };
+    }
+  };
+
+
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
-    const query = searchQuery.trim();
+    // Normalizar: eliminar saltos de línea, tabs, espacios dobles
+    const query = searchQuery.trim().replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ');
     if (!query) return;
 
     setLoading(true);
     setResults(null);
 
     try {
-      // Nominatim: Búsqueda de alta precisión
-      const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1&countrycodes=es`;
+      // ─── PARSING DE LA DIRECCIÓN ───────────────────────────────────────────
+      // Detecta: calle, número de portal, código postal (5 dígitos), ciudad
+      // Soporta cualquier formato español: con/sin C.P., con/sin ciudad, multilínea
+      const streetMatch = query.match(/^(.+?)[,\s]+(\d+)[,\s]*(.*)$/);
 
-      const response = await fetch(searchUrl, {
-        method: 'GET',
-        headers: { 'Accept-Language': 'es' }
-      });
+      let streetPart = null;
+      let numberPart = null;
+      let postalCode = null;
+      let cityPart = null;
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
+      if (streetMatch) {
+        streetPart = streetMatch[1].trim();
+        numberPart = streetMatch[2].trim();
+        const rest = streetMatch[3].trim();
+
+        if (rest) {
+          const cpMatch = rest.match(/^(\d{5})[,\s]+(.+)$/);
+          if (cpMatch) {
+            postalCode = cpMatch[1];
+            cityPart = cpMatch[2].split(',')[0].trim();
+          } else if (/^\d{5}$/.test(rest.split(/[,\s]/)[0])) {
+            postalCode = rest.split(/[,\s]/)[0];
+            cityPart = null;
+          } else {
+            cityPart = rest.split(',')[0].trim();
+          }
+        }
+      }
+
+      // ─── HELPER: quita prefijos de calle habituales ────────────────────────
+      // "Calle de la Rúa Mayor" → "Rúa Mayor"   "Avenida de la Paz" → "Paz"
+      const stripStreetPrefix = (s) => {
+        if (!s) return s;
+        return s
+          .replace(/^(calle|c\/|avda?\.?|avenida|paseo|plaza|ronda|carretera|camino|travess?[íi]a|rambla|via|vía|boulevard|bulevar)\s+(de\s+(la\s+|las\s+|el\s+|los\s+|l[ao]\s+)?|del\s+|de\s+)?/i, '')
+          .trim();
+      };
+
+      const strippedStreet = streetPart ? stripStreetPrefix(streetPart) : null;
+
+      // ─── MOTOR DE BÚSQUEDA EN CASCADA ─────────────────────────────────────
+      // Genera hasta 7 variantes de URL y las prueba en orden hasta que una devuelva resultados
+      const nominatimSearch = async (q, extraParams = '') => {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=10${extraParams}&q=${encodeURIComponent(q)}`;
+        try {
+          const r = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+          if (!r.ok) return [];
+          return await r.json();
+        } catch { return []; }
+      };
+
+      // Búsqueda estructurada (más precisa cuando el nombre de calle coincide exactamente en OSM)
+      const nominatimStructured = async (street, number, city, cp) => {
+        let url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=es&street=${encodeURIComponent(number + ' ' + street)}`;
+        if (city) url += `&city=${encodeURIComponent(city)}`;
+        if (cp) url += `&postalcode=${encodeURIComponent(cp)}`;
+        try {
+          const r = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+          if (!r.ok) return [];
+          return await r.json();
+        } catch { return []; }
+      };
+
+      let data = [];
+
+      // Las variantes se prueban en orden, parando al primer éxito
+      const variants = [
+        // 1. Estructurada con nombre completo
+        ...(streetPart && numberPart ? [() => nominatimStructured(streetPart, numberPart, cityPart, postalCode)] : []),
+        // 2. Estructurada con nombre simplificado (sin "Calle de la…")
+        ...(strippedStreet && strippedStreet !== streetPart && numberPart ? [() => nominatimStructured(strippedStreet, numberPart, cityPart, postalCode)] : []),
+        // 3. Query libre: "14 Calle de la Rúa Mayor, 37002, Salamanca" (España)
+        ...(streetPart && numberPart ? [() => {
+          const parts = [numberPart + ' ' + streetPart];
+          if (postalCode) parts.push(postalCode);
+          if (cityPart) parts.push(cityPart);
+          return nominatimSearch(parts.join(', '), '&countrycodes=es');
+        }] : []),
+        // 4. Query libre con nombre simplificado (España)
+        ...(strippedStreet && strippedStreet !== streetPart && numberPart ? [() => {
+          const parts = [numberPart + ' ' + strippedStreet];
+          if (postalCode) parts.push(postalCode);
+          if (cityPart) parts.push(cityPart);
+          return nominatimSearch(parts.join(', '), '&countrycodes=es');
+        }] : []),
+        // 5. Query completa normalizada tal cual (España)
+        () => nominatimSearch(query, '&countrycodes=es'),
+        // 6. Query completa normalizada SIN restricción de país (último recurso España)
+        () => nominatimSearch(query, ''),
+        // 7. Solo nombre simplificado + ciudad/CP (por si el número no existe en OSM)
+        ...(strippedStreet && (cityPart || postalCode) ? [() => {
+          const parts = [strippedStreet];
+          if (postalCode) parts.push(postalCode);
+          if (cityPart) parts.push(cityPart);
+          return nominatimSearch(parts.join(', '), '');
+        }] : []),
+      ];
+
+      for (const variant of variants) {
+        if (data.length > 0) break;
+        const result = await variant();
+        if (result.length > 0) data = result;
+      }
+      // ──────────────────────────────────────────────────────────────────────
 
       if (data && data.length > 0) {
-        // Algoritmo de selección: Priorizar números de portal y edificios
-        const preciseResult = data.find(item =>
-          (item.class === 'building' || item.address.house_number) &&
-          item.type !== 'administrative'
-        ) || data[0];
+        // Selección: portal exacto > edificio > house_number > no-admin > primero
+        const preciseResult =
+          (numberPart && data.find(item => item.class === 'building' && item.address?.house_number === numberPart)) ||
+          data.find(item => item.class === 'building') ||
+          (numberPart && data.find(item => item.address?.house_number === numberPart)) ||
+          data.find(item => item.address?.house_number) ||
+          data.find(item => item.type !== 'administrative') ||
+          data[0];
 
-        const lat = parseFloat(preciseResult.lat);
-        const lon = parseFloat(preciseResult.lon);
+        const nominatimLat = parseFloat(preciseResult.lat);
+        const nominatimLon = parseFloat(preciseResult.lon);
+
+        // ── SNAP AL TEJADO REAL (Overpass) ──
+        toast.loading('Localizando tejado del edificio...', { id: 'snap' });
+        const snap = await snapToBuilding(nominatimLat, nominatimLon, numberPart || null);
+        toast.dismiss('snap');
+
+        const lat = snap.lat;
+        const lon = snap.lon;
 
         setMarkerPos([lat, lon]);
         setMapCenter([lat, lon]);
+        setMapZoom(20);
 
-        const roundedLat = Math.round(lat * 10000) / 10000;
-        const roundedLon = Math.round(lon * 10000) / 10000;
-        const seed = (Math.abs(roundedLat) * 1000 + Math.abs(roundedLon) * 1000) % 1;
-        const detectedArea = Math.floor(40 + seed * 90);
         const randomPrice = 0.14 + (Math.random() * 0.05);
+        let detectedArea;
+        if (snap.found && snap.areaMq && snap.areaMq > 20) {
+          detectedArea = Math.round(snap.areaMq * 0.70);
+        } else {
+          const seed = (Math.abs(Math.round(lat * 10000) / 10000) * 1000 + Math.abs(Math.round(lon * 10000) / 10000) * 1000) % 1;
+          detectedArea = Math.floor(40 + seed * 90);
+        }
         const impact = calculateSolarImpact(detectedArea, randomPrice);
 
-        const finalResult = { ...impact, area: detectedArea, address: preciseResult.display_name };
+        const foundHouseNumber = preciseResult.address?.house_number;
+        const finalResult = { ...impact, area: detectedArea, address: preciseResult.display_name, buildingSnapped: snap.found };
 
-        // Timeout para que el usuario perciba que algo ha pasado
         setTimeout(() => {
           setResults(finalResult);
           setShowSearch(false);
-          toast.success("Ubicación Encontrada");
+          toast.success(
+            snap.found
+              ? `Tejado Nº${foundHouseNumber || numberPart || ''} · ${detectedArea}m² reales`
+              : foundHouseNumber ? `Portal Nº${foundHouseNumber} Localizado` : 'Ubicación Encontrada'
+          );
         }, 300);
 
-        if (session) {
-          saveAnalysis(finalResult);
-        }
+        if (session) saveAnalysis(finalResult);
+
       } else {
-        toast.error("Sin resultados. Prueba: Calle, Número, Ciudad.");
+        toast.error('Sin resultados. Prueba a incluir ciudad o código postal.');
       }
     } catch (error) {
-      console.error("Geocoding failure", error);
-      toast.error("Error en la conexión. Reintenta.");
+      console.error('Geocoding failure', error);
+      toast.error('Error inesperado. Reintenta.');
     } finally {
       setLoading(false);
     }
   };
 
+
   const handleMapClick = async (coords) => {
     setLoading(true)
-    setMapCenter(coords)
-    setMarkerPos(coords)
+    setMapZoom(20)
     try {
-      const [lat, lon] = coords
+      const [clickLat, clickLon] = coords
+
+      // 1. Snap al edificio más cercano al click
+      const snap = await snapToBuilding(clickLat, clickLon);
+      const lat = snap.lat;
+      const lon = snap.lon;
+
+      setMapCenter([lat, lon]);
+      setMarkerPos([lat, lon]);
+
+      // 2. Reverse geocoding de las coordenadas del edificio (no del click)
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
       const data = await response.json()
       const address = data.display_name || `Coordenadas: ${lat.toFixed(4)}, ${lon.toFixed(4)}`
 
-      const roundedLat = Math.round(lat * 10000) / 10000;
-      const roundedLon = Math.round(lon * 10000) / 10000;
-      const seed = (Math.abs(roundedLat) * 1000 + Math.abs(roundedLon) * 1000) % 1;
-      const detectedArea = Math.floor(40 + seed * 90)
       const randomPrice = 0.14 + (Math.random() * 0.05)
+      let detectedArea;
+      if (snap.found && snap.areaMq && snap.areaMq > 20) {
+        detectedArea = Math.round(snap.areaMq * 0.70);
+      } else {
+        const seed = (Math.abs(Math.round(lat * 10000) / 10000) * 1000 + Math.abs(Math.round(lon * 10000) / 10000) * 1000) % 1;
+        detectedArea = Math.floor(40 + seed * 90);
+      }
       const impact = calculateSolarImpact(detectedArea, randomPrice)
 
-      const finalResult = { ...impact, area: detectedArea, address };
+      const finalResult = { ...impact, area: detectedArea, address, buildingSnapped: snap.found };
       setResults(finalResult);
 
       if (session) {
@@ -165,14 +403,15 @@ function App() {
   const handleLogoClick = () => {
     setResults(null);
     setMarkerPos(null);
-    setMapCenter([37.3891, -4.7636]);
+    setMapCenter(SPAIN_CENTER);
+    setMapZoom(SPAIN_ZOOM);
     setSearchQuery('');
     setLoading(false);
     setShowSearch(false);
-    setShowUserDashboard(false); // Clear user dashboard state
-    setShowAdmin(false); // Clear admin dashboard state
-    setShowTerms(false); // Clear terms state
-    setShowPrivacy(false); // Clear privacy state
+    setShowUserDashboard(false);
+    setShowAdmin(false);
+    setShowTerms(false);
+    setShowPrivacy(false);
     toast.success('Información reiniciada', {
       style: { background: '#00050a', color: '#fff', border: '1px solid #ffffff10' }
     });
@@ -200,7 +439,7 @@ function App() {
       await supabase.from('profiles').upsert({
         id: userId,
         email: session.user.email,
-        full_name: session.user.user_metadata?.full_name || 'Consultor OceanX'
+        fullname: session.user.user_metadata?.fullname || 'Consultor OceanX'
       }, { onConflict: 'id' });
 
       toast.success(`Sincronización Completa: ${data.address.split(',')[0]}`);
@@ -209,11 +448,9 @@ function App() {
     }
   }, [session]);
 
-  useEffect(() => {
-    if (results && results.address) {
-      saveAnalysis(results);
-    }
-  }, [results, saveAnalysis]);
+  // NOTA: saveAnalysis se llama directamente en handleSearch y handleMapClick.
+  // El useEffect que lo llamaba al cambiar 'results' ha sido eliminado para
+  // evitar el guardado doble que causaba entradas duplicadas en solar_analysis.
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -252,14 +489,18 @@ function App() {
             />
 
             <AnimatePresence>
-              {!session && (
+              {(!session || isRecovery) && (
                 <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6 bg-black/20 text-black">
-                  <Login onLogin={() => {
-                    setIsAuthenticating(true);
-                    setTimeout(() => {
-                      setIsAuthenticating(false);
-                    }, 2000);
-                  }} />
+                  <Login
+                    initialMode={isRecovery ? 'reset' : 'login'}
+                    onLogin={() => {
+                      setIsRecovery(false)
+                      setIsAuthenticating(true);
+                      setTimeout(() => {
+                        setIsAuthenticating(false);
+                      }, 2000);
+                    }}
+                  />
                 </div>
               )}
             </AnimatePresence>
@@ -377,7 +618,7 @@ function App() {
           <div className="relative w-full h-full flex-1 overflow-x-hidden">
             {/* Mapa como Fondo Total (Z-0) */}
             <section className="fixed inset-0 z-0 h-[100svh] w-full">
-              <MapComponent center={mapCenter} markerPos={markerPos} onMapClick={handleMapClick} isMobile={isMobile} />
+              <MapComponent center={mapCenter} zoom={mapZoom} markerPos={markerPos} onMapClick={handleMapClick} isMobile={isMobile} />
             </section>
 
             {/* Capa de Contenido (Z-10) */}

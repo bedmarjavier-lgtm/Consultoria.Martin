@@ -11,8 +11,15 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Inicialización de Supabase
+// IMPORTANTE: Usamos SERVICE_ROLE_KEY en el backend para bypassar RLS.
+// Esta clave NUNCA debe exponerse al frontend.
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!process.env.SUPABASE_SERVICE_KEY) {
+    console.warn('⚠️  ADVERTENCIA: SUPABASE_SERVICE_KEY no encontrada. Usando ANON_KEY. Los inserts pueden fallar por RLS.');
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuración de almacenamiento para archivos locales (Backup/Temporal)

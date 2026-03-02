@@ -16,19 +16,14 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // Componente para manejar el vuelo cinematográfico
-function MapController({ center }) {
+function MapController({ center, zoom }) {
     const map = useMap();
     const isFirstRender = React.useRef(true);
 
     useEffect(() => {
-        // Forzar recálculo de tamaño al montar y después de un breve delay
-        // Esto soluciona las "bandas negras" cuando el contenedor tarda en renderizar
-        const triggerInvalidate = () => {
-            map.invalidateSize();
-        };
-
-        triggerInvalidate();
-        const timer = setTimeout(triggerInvalidate, 500);
+        // Un único invalidateSize con delay para evitar el micro-salto/vibración al abrir
+        const triggerInvalidate = () => map.invalidateSize({ animate: false });
+        const timer = setTimeout(triggerInvalidate, 300);
 
         window.addEventListener('resize', triggerInvalidate);
         return () => {
@@ -41,14 +36,17 @@ function MapController({ center }) {
         if (center) {
             if (isFirstRender.current) {
                 isFirstRender.current = false;
+                // En el primer render, posicionar sin animación
+                map.setView(center, zoom || 6, { animate: false });
                 return;
             }
-            map.flyTo(center, 19, {
-                duration: 3.5,
+            const targetZoom = zoom || 19;
+            map.flyTo(center, targetZoom, {
+                duration: targetZoom <= 7 ? 1.5 : 3.5, // rápido para reset, lento para búsqueda
                 easeLinearity: 0.2
             });
         }
-    }, [center, map]);
+    }, [center, zoom, map]);
     return null;
 }
 
@@ -67,7 +65,7 @@ const spainBounds = [
     [50.0, 15.0]    // Norte y Este (Baleares expandido)
 ];
 
-const MapComponent = ({ center, markerPos, onMapClick, isMobile }) => {
+const MapComponent = ({ center, zoom, markerPos, onMapClick, isMobile }) => {
     return (
         <div className="w-full h-full relative overflow-hidden bg-[#00050a]">
             {/* Scanline HUD Overlay */}
@@ -75,8 +73,8 @@ const MapComponent = ({ center, markerPos, onMapClick, isMobile }) => {
 
             <MapContainer
                 center={center}
-                zoom={19}
-                minZoom={6}
+                zoom={zoom || 6}
+                minZoom={5}
                 maxBounds={spainBounds}
                 maxBoundsViscosity={0.5}
                 className="w-full h-full"
@@ -103,7 +101,7 @@ const MapComponent = ({ center, markerPos, onMapClick, isMobile }) => {
                     bounds={spainBounds}
                     keepBuffer={12}
                 />
-                <MapController center={center} />
+                <MapController center={center} zoom={zoom} />
                 {!isMobile && <MapEvents onMapClick={onMapClick} />}
                 {markerPos && (
                     <Marker position={markerPos}>

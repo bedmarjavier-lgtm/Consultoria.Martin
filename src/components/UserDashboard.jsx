@@ -18,11 +18,6 @@ const UserDashboard = ({ isOpen, onClose, onLogout, session }) => {
     const [saving, setSaving] = useState(false);
     const [fileUploadStatus, setFileUploadStatus] = useState('idle');
 
-    useEffect(() => {
-        if (isOpen && session) {
-            fetchUserData();
-        }
-    }, [isOpen, session, fetchUserData]);
 
     const fetchUserData = useCallback(async () => {
         setLoading(true);
@@ -64,6 +59,12 @@ const UserDashboard = ({ isOpen, onClose, onLogout, session }) => {
             setLoading(false);
         }
     }, [session]);
+
+    useEffect(() => {
+        if (isOpen && session) {
+            fetchUserData();
+        }
+    }, [isOpen, session, fetchUserData]);
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
