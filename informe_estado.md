@@ -1,43 +1,93 @@
-# Informe de Estado: Consultoria.Martin v1.0
-**Fecha:** 2 de marzo de 2026
-**Estado General:** 85% - Fase de Integración Avanzada
+# 📋 Estado del Proyecto — Consultoria.Martin
+**Última actualización:** 03/03/2026 00:44  
+**Commit:** `7bc6072` — `feat: snap al edificio real con Overpass + motor de búsqueda 7 variantes`
 
 ---
 
-## 1. Logros Técnicos (Completado)
+## ✅ Lo que funciona hoy
 
-### 🪐 Experiencia de Usuario & Diseño
-- **Experiencia Inmersiva:** Implementado `GlobeDiscovery` con efecto de zoom y desenfoque dinámico vinculado a la autenticación.
-- **Estética OceanX:** Interfaz radical *Glassmorphism* con paleta de colores curada (Electric Cyan / Solar Orange).
-- **Adaptabilidad Total:** Arquitectura *Mobile-First* que permite el uso fluido tanto en dispositivos móviles (scroll vertical) como en escritorio (HUD HUD-style).
-- **HUD HUD (Heads-Up Display):** Paneles laterales inteligentes para visualización de datos sin perder de vista el mapa.
+### 🗺️ Geolocalización — RESUELTO HOY
+El mayor bug de la plataforma: el marcador caía en medio de la carretera en vez de sobre el edificio.
 
-### ⚡ Motor de Análisis & Datos
-- **Geolocalización Determinista:** Sistema de búsqueda con validación de estructuras para evitar análisis en zonas no urbanizadas.
-- **Sincronización Cloud:** Integración total con **Supabase** (Auth + DB). Los análisis se guardan automáticamente en las tablas `solar_analysis` y `financial_audit`.
-- **Dashboards Duales:**
-    - `UserDashboard`: Historial de ahorros y análisis para el cliente final.
-    - `AdminDashboard`: Gestión de leads y auditorías con acceso por atajos de teclado secretos.
+**Solución implementada en `src/App.jsx`:**
+
+1. **`snapToBuilding(lat, lon, houseNumber)`** — nueva función:
+   - Consulta **Overpass API** (OpenStreetMap) para obtener el polígono del edificio real
+   - Calcula el **centroide geométrico** del tejado (no la calle)
+   - Calcula el **área real en m²** con la fórmula de Shoelace/Gauss
+   - **3 servidores de respaldo**: overpass-api.de → kumi.systems → maps.mail.ru
+   - **2 radios**: 80m → 150m si no encuentra nada
+
+2. **Motor de búsqueda en cascada** — 7 variantes en orden:
+   - Estructurada con nombre completo de calle
+   - Estructurada con nombre simplificado (sin "Calle de la…")
+   - Libre con nombre completo + CP + ciudad (España)
+   - Libre con nombre simplificado + CP + ciudad (España)
+   - Query completa normalizada (España)
+   - Query completa sin restricción de país
+   - Solo calle simplificada + ciudad (sin número)
+
+3. **`stripStreetPrefix()`**: Elimina prefijos automáticamente:
+   - "Calle de la Rúa Mayor" → "Rúa Mayor"
+   - "Avenida de la Constitución" → "Constitución"
+   - "Paseo de la Castellana" → "Castellana"
+
+4. **Parsing de dirección universal**: extrae código postal español (5 dígitos)
+   separado de ciudad, soporta formatos multilinea (copiado de Google Maps, email, etc.)
+
+5. **Área de tejado real**: el `SolarCalculator` recibe el área OSM × 0.70
+   (factor de aprovechamiento real) en vez de un valor pseudoaleatorio.
+
+6. **Zoom 20** (máximo satelital) al localizar un edificio.
 
 ---
 
-## 2. Road Map: Pendientes para el Cierre (Fase Final)
+### 🖥️ Frontend (Vite + React)
+- **URL:** http://localhost:5173
+- **Arranque:** `npm run dev` desde la raíz del proyecto
+- Login/registro con Supabase funcionando
+- Globe 3D de entrada → zoom → pantalla principal con mapa
+- Dashboard de usuario (perfil, facturas, historial)
+- Reset de contraseña por email
 
-### 🔍 Auditoría de Facturas (Prioridad Alta)
-- [ ] **OCR Real:** Pasar de la simulación de escaneo a la extracción real de datos de facturas PDF/JPG.
-- [ ] **Precisión del Pool:** Conectar con la API de **ESIOS (REE)** para obtener el precio real del kWh en tiempo real, eliminando las estimaciones fijas.
-
-### 📐 Refinamiento Geo-Arquitectónico
-- [ ] **Análisis de Azimut:** Permitir al usuario definir la orientación del tejado o detectarla automáticamente para ajustar el ROI.
-- [ ] **Factor de Sombra:** Implementar un selector de obstáculos (árboles, chimeneas) para una precisión del 99% en la generación fotovoltaica.
-
-### 💼 CRM & Conversión
-- [ ] **Generador de Informes:** Función para descargar el análisis en formato PDF profesional con el branding de la consultoría.
-- [ ] **Alertas de Leads:** Sistema de notificación automática vía Email/Telegram al recibir una nueva solicitud de auditoría.
-
-### ⚖️ Legal & Despliegue
-- [ ] **Contenido Legal:** Redactar los términos y condiciones específicos para la consultoría energética.
-- [ ] **Checklist de Producción:** Revisión de variables de entorno, optimización de assets de Three.js y despliegue en servidor de producción.
+### 🔧 Backend (Node/Express)
+- **URL:** http://localhost:5001
+- **Arranque:** `node index.js` desde `./server/`
+- Recibe leads con factura adjunta (multer)
+- Guarda en Supabase tabla `leads`
+- Sirve archivos de `./uploads/`
 
 ---
-*Documento generado por Antigravity | Central de Inteligencia Consultoria.Martin*
+
+## 🔜 Pendiente / Ideas para mañana
+
+- [ ] Testear el snap en más direcciones de ciudades pequeñas
+- [ ] Mostrar el polígono del edificio en el mapa (overlay de tejado)
+- [ ] Afinar el factor de aprovechamiento (0.70) según orientación del tejado
+- [ ] Integrar precio real de electricidad desde ESIOS/REE API
+- [ ] OCR automático de facturas en el backend
+- [ ] Panel Admin: ver leads en tiempo real
+
+---
+
+## 🏗️ Arquitectura de archivos clave
+
+```
+src/
+  App.jsx              ← Motor de búsqueda + snapToBuilding + mapa
+  components/
+    MapComponent.jsx   ← Leaflet + Google Satellite tiles
+    ResultCard.jsx     ← Tarjeta de resultados solares
+    SmartInsights.jsx  ← Panel de anomalías e insights
+    UserDashboard.jsx  ← Dashboard usuario (facturas, historial)
+    GlobeDiscovery.jsx ← Globe 3D de entrada (Three.js)
+    Login.jsx          ← Autenticación Supabase
+  utils/
+    SolarCalculator.js ← Cálculos Geo-Architect (@1.7m²/panel, 4.75kWh/m²/día)
+  lib/
+    supabase.js        ← Cliente Supabase
+
+server/
+  index.js             ← API Express (leads, uploads)
+  .env                 ← SUPABASE_URL, SUPABASE_KEY, PORT=5001
+```
