@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -10,6 +10,13 @@ const Login = ({ onLogin, initialMode = 'login' }) => {
     // mode: 'login' | 'register' | 'forgot' | 'reset'
     const [mode, setMode] = useState(initialMode);
     const [loading, setLoading] = useState(false);
+
+    // Sincroniza el modo cuando el padre cambia initialMode
+    // (necesario para el flujo PASSWORD_RECOVERY: el componente ya está montado
+    // en modo 'login' cuando Supabase dispara el evento y el padre lo pone en 'reset')
+    useEffect(() => {
+        setMode(initialMode);
+    }, [initialMode]);
     const [forgotSent, setForgotSent] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -33,8 +40,9 @@ const Login = ({ onLogin, initialMode = 'login' }) => {
                 toast.success('¡Contraseña actualizada correctamente! Iniciando sesión...');
                 onLogin();
             } else if (mode === 'forgot') {
+                const redirectUrl = `${window.location.origin}/reset-password`;
                 const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${window.location.origin}/?recovery=1`,
+                    redirectTo: redirectUrl,
                 });
                 if (error) throw error;
                 setForgotSent(true);
@@ -81,6 +89,15 @@ const Login = ({ onLogin, initialMode = 'login' }) => {
                 <div className="absolute top-0 left-0 w-full h-[1px] bg-cyan-400/30 animate-scan pointer-events-none"></div>
 
                 <div className="mb-10 text-center">
+                    {/* Logo */}
+                    <div className="flex flex-col items-center justify-center mb-6">
+                        <div className="leading-none">
+                            <span className="text-2xl font-black text-white tracking-tighter font-montserrat">Consultoria.</span>
+                            <span className="text-2xl font-black text-[#ff6a00] tracking-tighter font-montserrat">Martin</span>
+                        </div>
+
+                    </div>
+
                     <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">
                         {titles[mode]}
                     </h2>
@@ -123,21 +140,24 @@ const Login = ({ onLogin, initialMode = 'login' }) => {
                             onSubmit={handleSubmit}
                             className="space-y-6"
                         >
-                            {/* Email - siempre visible */}
-                            <div className="space-y-1">
-                                <label className="text-[10px] uppercase tracking-widest text-white/40 ml-2 font-bold">Correo Electrónico</label>
-                                <div className="relative group/input">
-                                    <input
-                                        type="email"
-                                        required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="usuario@consultoria.martin"
-                                        className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-4 text-sm text-white placeholder:text-white/10 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:shadow-[0_0_15px_rgba(0,242,255,0.1)] transition-all duration-300 font-montserrat backdrop-blur-sm"
-                                    />
-                                    <div className="absolute inset-0 rounded-2xl bg-cyan-400/5 opacity-0 group-focus-within/input:opacity-100 pointer-events-none transition-opacity"></div>
+                            {/* Email - oculto en modo reset (la sesión temporal ya está activa) */}
+                            {mode !== 'reset' && (
+                                <div className="space-y-1">
+                                    <label className="text-[10px] uppercase tracking-widest text-white/40 ml-2 font-bold">Correo Electrónico</label>
+                                    <div className="relative group/input">
+                                        <input
+                                            type="email"
+                                            required
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="usuario@consultoria.martin"
+                                            autoComplete="email"
+                                            className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-4 text-sm text-white placeholder:text-white/10 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:shadow-[0_0_15px_rgba(0,242,255,0.1)] transition-all duration-300 font-montserrat backdrop-blur-sm"
+                                        />
+                                        <div className="absolute inset-0 rounded-2xl bg-cyan-400/5 opacity-0 group-focus-within/input:opacity-100 pointer-events-none transition-opacity"></div>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Contraseña - solo en login/register/reset */}
                             <AnimatePresence>

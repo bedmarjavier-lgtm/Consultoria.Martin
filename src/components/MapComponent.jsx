@@ -65,7 +65,22 @@ const spainBounds = [
     [50.0, 15.0]    // Norte y Este (Baleares expandido)
 ];
 
-const MapComponent = ({ center, zoom, markerPos, onMapClick, isMobile }) => {
+const MapComponent = ({ center, zoom, markerPos, onMapClick, isMobile, onMarkerDragEnd }) => {
+    const markerRef = React.useRef(null);
+    const eventHandlers = React.useMemo(
+        () => ({
+            dragend() {
+                const marker = markerRef.current;
+                if (marker != null) {
+                    const { lat, lng } = marker.getLatLng();
+                    if (onMarkerDragEnd) {
+                        onMarkerDragEnd([lat, lng]);
+                    }
+                }
+            },
+        }),
+        [onMarkerDragEnd],
+    );
     return (
         <div className="w-full h-full relative overflow-hidden bg-[#00050a]">
             {/* Scanline HUD Overlay */}
@@ -104,7 +119,12 @@ const MapComponent = ({ center, zoom, markerPos, onMapClick, isMobile }) => {
                 <MapController center={center} zoom={zoom} />
                 {!isMobile && <MapEvents onMapClick={onMapClick} />}
                 {markerPos && (
-                    <Marker position={markerPos}>
+                    <Marker
+                        position={markerPos}
+                        draggable={true}
+                        eventHandlers={eventHandlers}
+                        ref={markerRef}
+                    >
                     </Marker>
                 )}
             </MapContainer>
@@ -115,4 +135,4 @@ const MapComponent = ({ center, zoom, markerPos, onMapClick, isMobile }) => {
     );
 };
 
-export default MapComponent;
+export default React.memo(MapComponent);
