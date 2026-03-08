@@ -23,6 +23,7 @@ export default function HeroSection({
     onLogin,
 }) {
     const [isZooming, setIsZooming] = useState(false);
+    const [showLogin, setShowLogin] = useState(false);
 
     const handleLogin = () => {
         setIsZooming(true);
@@ -42,7 +43,7 @@ export default function HeroSection({
             <div className="absolute inset-0 pointer-events-none">
                 <Suspense fallback={<GlobeFallback />}>
                     <GlobeDiscovery
-                        isBlurred={!session || isRecovery}
+                        isBlurred={showLogin || isRecovery}
                         isZooming={isZooming}
                     />
                 </Suspense>
@@ -77,14 +78,23 @@ export default function HeroSection({
                     </p>
                 </motion.div>
 
-                {/* Login glassmorphism — solo si no hay sesión (o en recovery) */}
-                {(!session || isRecovery) && (
+                {/* Login glassmorphism — se muestra si se requiere login o recuperación */}
+                {(showLogin || isRecovery) && (
                     <motion.div
                         initial={{ opacity: 0, y: 30, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.7, delay: 0.25, ease: 'easeOut' }}
-                        className="w-full max-w-md"
+                        className="w-full max-w-md relative"
                     >
+                        {/* Botón para arrinconar el login y cancelarlo si alguien se arrepiente */}
+                        {!isRecovery && !session && (
+                            <button
+                                onClick={() => setShowLogin(false)}
+                                className="absolute -top-10 right-2 z-50 text-white/50 hover:text-white uppercase tracking-widest text-[9px] font-bold transition-colors"
+                            >
+                                ← Volver
+                            </button>
+                        )}
                         <Login
                             initialMode={isRecovery ? 'reset' : 'login'}
                             onLogin={handleLogin}
@@ -92,8 +102,8 @@ export default function HeroSection({
                     </motion.div>
                 )}
 
-                {/* Si ya hay sesión y no es recovery: CTA + scroll hint */}
-                {session && !isRecovery && (
+                {/* Botón Principal (siempre visible a menos que se abra el panel de login o recuperación) */}
+                {!isRecovery && !showLogin && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -101,7 +111,13 @@ export default function HeroSection({
                         className="flex flex-col items-center gap-6"
                     >
                         <button
-                            onClick={onEnterExperience}
+                            onClick={() => {
+                                if (session) {
+                                    onEnterExperience();
+                                } else {
+                                    setShowLogin(true);
+                                }
+                            }}
                             className="group flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-full text-white text-[11px] font-black uppercase tracking-[0.3em] shadow-[0_0_40px_rgba(0,242,255,0.3)] hover:shadow-[0_0_60px_rgba(0,242,255,0.5)] hover:scale-105 active:scale-95 transition-all duration-300"
                         >
                             <span>Iniciar Análisis Solar</span>

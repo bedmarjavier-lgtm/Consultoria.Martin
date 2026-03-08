@@ -568,8 +568,8 @@ function App() {
               }}
             />
 
-            {/* Resto de secciones — solo si hay sesión */}
-            {session && !isRecovery && (
+            {/* Resto de secciones — visibles para cualquier visitante no-logueado */}
+            {!isRecovery && (
               <>
                 <HowWeWork />
 
