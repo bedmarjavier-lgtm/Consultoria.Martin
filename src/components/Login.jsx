@@ -89,14 +89,7 @@ const Login = ({ onLogin, initialMode = 'login' }) => {
                 <div className="absolute top-0 left-0 w-full h-[1px] bg-cyan-400/30 animate-scan pointer-events-none"></div>
 
                 <div className="mb-10 text-center">
-                    {/* Logo */}
-                    <div className="flex flex-col items-center justify-center mb-6">
-                        <div className="leading-none">
-                            <span className="text-2xl font-black text-white tracking-tighter font-montserrat">Consultoria.</span>
-                            <span className="text-2xl font-black text-[#ff6a00] tracking-tighter font-montserrat">Martin</span>
-                        </div>
 
-                    </div>
 
                     <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">
                         {titles[mode]}
