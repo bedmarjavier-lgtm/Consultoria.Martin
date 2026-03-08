@@ -105,7 +105,8 @@ const UserDashboard = ({ isOpen, onClose, onLogout, session }) => {
         formData.append('userId', session.user.id);
 
         try {
-            const response = await fetch('http://localhost:5001/api/leads', {
+            const API_URL = import.meta.env.VITE_API_URL || 'https://consultoria-martin.onrender.com';
+            const response = await fetch(`${API_URL}/api/leads`, {
                 method: 'POST',
                 body: formData
             });
@@ -343,7 +344,7 @@ const UserDashboard = ({ isOpen, onClose, onLogout, session }) => {
                                                         </div>
                                                     </div>
                                                     <a
-                                                        href={inv.billFile && inv.billFile.startsWith('http') ? inv.billFile : `http://localhost:5001/${inv.billFile}`}
+                                                        href={inv.billFile && inv.billFile.startsWith('http') ? inv.billFile : `${import.meta.env.VITE_API_URL || 'https://consultoria-martin.onrender.com'}/${inv.billFile}`}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                         className="shrink-0 p-3 md:px-6 md:py-3 bg-black text-white text-[9px] font-black uppercase tracking-widest rounded-xl"

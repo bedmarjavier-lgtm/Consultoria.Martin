@@ -95,7 +95,8 @@ const AuditForm = ({ address, userId }) => {
         if (file) data.append('bill', file);
 
         try {
-            const response = await fetch('http://localhost:5001/api/leads', {
+            const API_URL = import.meta.env.VITE_API_URL || 'https://consultoria-martin.onrender.com';
+            const response = await fetch(`${API_URL}/api/leads`, {
                 method: 'POST',
                 body: data,
             });

@@ -46,7 +46,8 @@ const AdminDashboard = ({ isOpen, onClose, session }) => {
         setLoading(true);
         try {
             // Consultamos al servidor central (Hub Unificado)
-            const response = await fetch('http://localhost:5001/api/leads_data');
+            const API_URL = import.meta.env.VITE_API_URL || 'https://consultoria-martin.onrender.com';
+            const response = await fetch(`${API_URL}/api/leads_data`);
             if (response.ok) {
                 const data = await response.json();
                 setLeads(data || []);
@@ -166,7 +167,7 @@ const AdminDashboard = ({ isOpen, onClose, session }) => {
                                     <td className="p-6">
                                         {lead.billFile ? (
                                             <a
-                                                href={lead.billFile.startsWith('http') ? lead.billFile : `http://localhost:5001/${lead.billFile}`}
+                                                href={lead.billFile.startsWith('http') ? lead.billFile : `${import.meta.env.VITE_API_URL || 'https://consultoria-martin.onrender.com'}/${lead.billFile}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[9px] font-black uppercase rounded-lg hover:bg-cyan-500 hover:text-black transition-all cursor-pointer inline-flex items-center gap-2"
