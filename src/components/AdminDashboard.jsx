@@ -47,7 +47,11 @@ const AdminDashboard = ({ isOpen, onClose, session }) => {
         try {
             // Consultamos al servidor central (Hub Unificado)
             const API_URL = import.meta.env.VITE_API_URL || 'https://consultoria-martin.onrender.com';
-            const response = await fetch(`${API_URL}/api/leads_data`);
+            const response = await fetch(`${API_URL}/api/leads_data`, {
+                headers: {
+                    'x-api-key': import.meta.env.VITE_ADMIN_API_KEY || 'martin_secure_api_key_2026'
+                }
+            });
             if (response.ok) {
                 const data = await response.json();
                 setLeads(data || []);

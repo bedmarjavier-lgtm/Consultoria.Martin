@@ -33,14 +33,25 @@ const storage = multer.diskStorage({
         cb(null, localUploadsDir);
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '_'));
+        // Seguridad: path.basename previene Name Spoofing y ataques de Path Traversal (ej. ../../../)
+        const safeName = path.basename(file.originalname).replace(/[^a-zA-Z0-9.-]/g, '_');
+        cb(null, Date.now() + '-' + safeName);
     }
 });
 
 const upload = multer({ storage: storage });
-
-app.use(cors());
-app.use(bodyParser.json());
+// Seguridad: Configuración CORS restrictiva (Evita peticiones de dominios no autorizados)
+const allowedOrigins = ['http://localhost:5173', 'https://consultoria-martin.vercel.app'];
+app.use(cors({
+    origin: function (origin, callback) {
+        // Permitimos localhost, dominios autorizados y subdominios de vercel
+        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Bloqueado por la política de seguridad CORS'));
+        }
+    }
+})); app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Servir archivos estáticos locales
@@ -134,6 +145,15 @@ app.post('/api/leads', upload.single('bill'), async (req, res) => {
 
 // Ruta para obtener los leads (Admin Dashboard - Cloud Preference)
 app.get('/api/leads_data', async (req, res) => {
+    // Seguridad Crítica: Endpoint protegido por API KEY para evitar fuga masiva de datos sensibles
+    const apiKey = req.headers['x-api-key'];
+    const validApiKey = process.env.ADMIN_API_KEY || 'martin_secure_api_key_2026';
+
+    if (apiKey !== validApiKey) {
+        console.warn(`[SEGURIDAD] Intento bloqueado de extraer la BBDD desde IP: ${req.ip}`);
+        return res.status(401).json({ error: 'Acceso Denegado: No tienes autorización militar/admin.' });
+    }
+
     let cloudLeads = [];
     let localLeads = [];
 
