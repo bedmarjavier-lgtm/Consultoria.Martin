@@ -34,6 +34,25 @@ function LazyFallback() {
   )
 }
 
+const faqsData = [
+  { q: '¿Cuánto puedo ahorrar en mi factura de luz con placas solares?', a: 'El ahorro depende de tu consumo, orientación del tejado y tarifa contratada, pero nuestros clientes registran un ahorro medio de 2.100€ anuales. Con nuestra simulación gratuita obtienes un cálculo personalizado basado en datos reales de mercado OMIE.' },
+  { q: '¿Qué es el autoconsumo solar con excedentes?', a: 'Es un modelo en el que instalas paneles solares para consumir su energía directamente, y la electricidad que sobra (excedente) se vierte a la red eléctrica recibiendo una compensación económica en tu factura. Es la modalidad más popular para hogares y pymes en España.' },
+  { q: '¿En cuánto tiempo se amortiza la instalación solar?', a: 'El período de retorno medio en España está entre 5 y 8 años, dependiendo del coste de instalación, las horas de sol en tu provincia y tu consumo eléctrico. En Andalucía, con más de 3.000 horas de sol al año, la amortización puede ser inferior a 5 años.' },
+  { q: '¿Necesito reformar el tejado antes de instalar las placas?', a: 'No necesariamente. Nuestro análisis LiDAR detecta si la cubierta tiene la resistencia estructural adecuada antes de hacer ninguna propuesta. Si hubiera que reforzar algo, te lo indicamos en el informe técnico con presupuesto desglosado.' },
+  { q: '¿La consulta inicial tiene algún coste?', a: 'No. El análisis de tu tejado, la simulación de ahorro energético y el primer informe son completamente gratuitos. Solo te cobraremos si decides avanzar con el proyecto de instalación, y siempre con presupuesto aceptado por ti.' },
+  { q: '¿Qué diferencia hay entre Consultoría.Martin y una empresa instaladora?', a: 'Somos consultores independientes, no vendemos ni instalamos. Nuestro único interés es que tomes la mejor decisión para ti. Por eso auditamos tu factura, estudiamos tu tejado y, solo si tiene sentido económico, te recomendamos instaladores de nuestra red auditada.' },
+];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqsData.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -62,10 +81,7 @@ function App() {
   const [isRecovery, setIsRecovery] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
-  const [suggestions, setSuggestions] = useState([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [debounceTimeout, setDebounceTimeout] = useState(null)
-
+  // Removed suggestions state
   // ── Auth ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace('#', ''))
@@ -192,30 +208,7 @@ function App() {
 
   // ── Search & Autocomplete ────────────────────────────────────────────────
   const handleSearchInputChange = (e) => {
-    const value = e.target.value
-    setSearchQuery(value)
-
-    if (debounceTimeout) clearTimeout(debounceTimeout)
-
-    if (value.trim().length > 3) {
-      setDebounceTimeout(setTimeout(async () => {
-        try {
-          const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(value)}&limit=5&lat=37.3891&lon=-4.7678`
-          const r = await fetch(url)
-          if (r.ok) {
-            const data = await r.json()
-            const features = data.features.filter(f => f.properties.country === 'España' || f.properties.countrycode === 'ES' || f.properties.state)
-            setSuggestions(features)
-            setShowSuggestions(true)
-          }
-        } catch (err) {
-          console.error('Error fetching suggestions', err)
-        }
-      }, 250)) // Reducido para mayor velocidad en móvil
-    } else {
-      setSuggestions([])
-      setShowSuggestions(false)
-    }
+    setSearchQuery(e.target.value)
   }
 
   const handleSuggestionClick = async (feature) => {
@@ -287,8 +280,6 @@ function App() {
     if (e) e.preventDefault()
     const query = (forcedQuery || searchQuery).trim().replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ')
     if (!query) return
-
-    setShowSuggestions(false)
 
     setLoading(true)
     setResults(null)
@@ -534,8 +525,11 @@ function App() {
         <meta property="og:title" content="Consultoría.Martin | Expertos en Ahorro Energético y Placas Solares" />
         <meta property="og:description" content="Análisis LiDAR gratuito de tu tejado y simulación real de ahorro energético basada en precios de mercado actuales." />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://consultoriamartin.com/" />
-        <link rel="canonical" href="https://consultoriamartin.com/" />
+        <meta property="og:url" content="https://consultoriamartin.es/" />
+        <link rel="canonical" href="https://consultoriamartin.es/" />
+        <script type="application/ld+json">
+          {JSON.stringify(faqSchema)}
+        </script>
       </Helmet>
 
       <Toaster position="bottom-right" toastOptions={{ style: { background: '#0a1628', color: '#fff', border: '1px solid rgba(255,255,255,0.08)' } }} />
@@ -548,8 +542,19 @@ function App() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
-            className="w-full"
+            className="w-full relative"
           >
+            {/* Landing Navigation */}
+            {!isRecovery && (
+              <nav className="absolute top-0 left-0 w-full z-[1000] p-6 flex justify-center pointer-events-auto">
+                <div className="flex gap-4 md:gap-8 bg-white/5 backdrop-blur-xl border border-white/10 py-3 px-6 md:px-10 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-white/70 shadow-[0_10px_40px_rgba(0,0,0,0.5)] transition-all hover:bg-white/10">
+                  <a href="#metodologia" className="hover:text-cyan-400 transition-colors">Metodología</a>
+                  <a href="#garantias" className="hover:text-cyan-400 transition-colors">Garantías</a>
+                  <a href="#faq" className="hover:text-cyan-400 transition-colors">FAQ</a>
+                </div>
+              </nav>
+            )}
+
             {/* Hero + Globe + Login */}
             <HeroSection
               session={session}
@@ -668,46 +673,20 @@ function App() {
                         <input
                           type="text"
                           autoFocus
+                          autoComplete="off"
+                          autoCorrect="off"
+                          spellCheck="false"
+                          name="search-address-disabled"
                           placeholder="Calle y Número, Ciudad..."
                           className="w-full bg-transparent border-b-2 border-white/5 px-0 py-6 text-2xl md:text-5xl font-black tracking-tighter text-white placeholder:text-white/10 uppercase focus:outline-none focus:border-cyan-400 transition-all text-center"
                           value={searchQuery}
                           onChange={handleSearchInputChange}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleSearch(e)
-                            if (e.key === 'Escape') setShowSuggestions(false)
                           }}
                         />
 
-                        {/* Dropdown de Sugerencias */}
-                        <AnimatePresence>
-                          {showSuggestions && suggestions.length > 0 && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute top-full left-0 w-full mt-2 bg-[#000810]/98 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-50 text-left"
-                            >
-                              {suggestions.map((s, i) => {
-                                const p = s.properties
-                                const mainText = [p.street, p.housenumber].filter(Boolean).join(' ') || p.name
-                                const subText = [p.city || p.town || p.village, p.state].filter(Boolean).join(', ')
-                                return (
-                                  <div
-                                    key={i}
-                                    onClick={() => handleSuggestionClick(s)}
-                                    className="px-6 py-4 cursor-pointer hover:bg-white/5 border-b border-white/5 flex items-center gap-4 transition-colors group"
-                                  >
-                                    <MapPin className="text-white/20 group-hover:text-cyan-400 transition-colors shrink-0" size={18} />
-                                    <div className="truncate">
-                                      <p className="text-white text-sm font-bold uppercase tracking-wider truncate">{mainText}</p>
-                                      {subText && <p className="text-white/40 text-[10px] uppercase tracking-widest truncate">{subText}</p>}
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+
                       </div>
 
                       <button
@@ -718,13 +697,13 @@ function App() {
                         {loading ? 'PROCESANDO...' : 'INICIAR AUDITORÍA'}
                       </button>
                       <button
-                        onClick={() => { setShowSearch(false); setShowSuggestions(false); }}
+                        onClick={() => { setShowSearch(false); }}
                         className="mt-8 text-white/30 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all"
                       >
                         CERRAR PANEL
                       </button>
                       <button
-                        onClick={() => { setShowSearch(false); setShowSuggestions(false); }}
+                        onClick={() => { setShowSearch(false); }}
                         className="absolute -top-6 -right-6 w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all backdrop-blur-xl"
                       >
                         <X size={24} />

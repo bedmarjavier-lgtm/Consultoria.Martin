@@ -43,7 +43,7 @@ export default function HowWeWork() {
 
     return (
         <section
-            id="como-trabajamos"
+            id="metodologia"
             ref={ref}
             aria-labelledby="how-heading"
             className="relative py-24 md:py-36 px-4 md:px-12 overflow-hidden"

@@ -29,16 +29,6 @@ const faqs = [
     },
 ];
 
-// JSON-LD Schema.org para FAQ Rich Snippets
-const faqSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: faqs.map(({ q, a }) => ({
-        '@type': 'Question',
-        name: q,
-        acceptedAnswer: { '@type': 'Answer', text: a },
-    })),
-};
 
 function FaqItem({ faq, index, inView }) {
     const [open, setOpen] = useState(false);
@@ -94,15 +84,8 @@ export default function FaqSection() {
 
     return (
         <>
-            {/* Schema.org JSON-LD para Rich Snippets */}
-            <Helmet>
-                <script type="application/ld+json">
-                    {JSON.stringify(faqSchema)}
-                </script>
-            </Helmet>
-
             <section
-                id="preguntas-frecuentes"
+                id="faq"
                 ref={ref}
                 aria-labelledby="faq-heading"
                 className="relative py-24 md:py-36 px-4 md:px-12"
@@ -142,7 +125,7 @@ export default function FaqSection() {
                         <p className="text-white/30 text-sm">
                             ¿No encuentras tu pregunta?{' '}
                             <a
-                                href="mailto:info@consultoriamartin.com"
+                                href="mailto:info@consultoriamartin.es"
                                 className="text-cyan-400 hover:text-white transition-colors font-semibold"
                             >
                                 Escríbenos directamente

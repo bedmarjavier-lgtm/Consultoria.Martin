@@ -80,10 +80,10 @@ export default function LandingFooter({ onShowTerms, onShowPrivacy }) {
                         <p className="text-[9px] font-black uppercase tracking-widest text-cyan-400/50 mb-5">Contacto Directo</p>
                         <p className="text-white/40 text-xs mb-5">Martín atiende personalmente cada consulta.</p>
                         <a
-                            href="mailto:info@consultoriamartin.com"
+                            href="mailto:info@consultoriamartin.es"
                             className="inline-flex items-center gap-2 bg-cyan-400/10 border border-cyan-400/20 text-cyan-400 text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-full hover:bg-cyan-400/20 hover:border-cyan-400/50 hover:shadow-[0_0_20px_rgba(0,242,255,0.15)] transition-all duration-300"
                         >
-                            <span>✉</span> info@consultoriamartin.com
+                            <span>✉</span> info@consultoriamartin.es
                         </a>
                     </div>
                 </div>
