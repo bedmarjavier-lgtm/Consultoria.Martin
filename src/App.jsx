@@ -613,9 +613,9 @@ function App() {
             className="flex flex-col relative w-full min-h-screen lg:h-screen lg:overflow-hidden overflow-y-auto overflow-x-hidden scroll-smooth"
           >
             {/* Header */}
-            <header className="fixed top-0 left-0 w-full p-4 md:px-12 md:py-8 z-[2000] grid grid-cols-3 items-center bg-transparent border-none backdrop-blur-sm lg:backdrop-blur-none">
+            <header className="fixed top-0 left-0 w-full p-4 md:px-12 md:py-8 z-[2000] flex items-center justify-between bg-transparent border-none backdrop-blur-sm lg:backdrop-blur-none relative">
               {/* Izquierda: Buscador */}
-              <div className="flex items-center justify-start">
+              <div className="flex items-center justify-start shrink-0 relative z-10">
                 <button
                   onClick={() => setShowSearch(!showSearch)}
                   className={`transition-all hover:scale-110 active:scale-95 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)] ${showSearch ? 'text-cyan-400' : 'text-white/70 hover:text-cyan-400'}`}
@@ -628,16 +628,16 @@ function App() {
               {/* Centro: Logo */}
               <div
                 onClick={handleLogoClick}
-                className="text-center cursor-pointer hover:scale-105 transition-transform flex flex-col items-center justify-center"
+                className="absolute left-1/2 -translate-x-1/2 text-center cursor-pointer hover:scale-105 transition-transform flex flex-col items-center justify-center w-max z-0"
               >
-                <div className="text-xl md:text-2xl lg:text-3xl font-black tracking-tighter uppercase font-montserrat leading-tight text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                <div className="text-[17px] sm:text-xl md:text-2xl lg:text-3xl font-black tracking-tighter uppercase font-montserrat leading-tight text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                   Consultoría.<span className="text-[#ff8c42]">Martin</span>
                 </div>
 
               </div>
 
               {/* Derecha: Usuario y Admin */}
-              <div className="flex items-center justify-end gap-6 md:gap-10">
+              <div className="flex items-center justify-end gap-3 sm:gap-6 md:gap-10 shrink-0 relative z-10">
                 <button
                   onClick={() => setShowUserDashboard(true)}
                   className="text-white/70 hover:text-cyan-400 transition-all hover:scale-110 active:scale-95"
