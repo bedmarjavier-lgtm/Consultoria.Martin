@@ -165,56 +165,56 @@ const clientTestimonialsData = [
             "El ajuste de potencia y el análisis exhaustivo de nuestras facturas redujeron brutalmente los sobrecostes en fábrica. Una vez en marcha, el nuevo punto de suministro es 100% eficiente.",
         name: "Gamito",
         designation: "Industria Alimentaria",
-        src: "/clientes/gamito logo.png",
+        src: "/clientes/gamito-logo (1).webp",
     },
     {
         quote:
             "En la hostelería cada kilovatio cuenta. La auditoría LiDAR nos reveló el potencial oculto de nuestra azotea, y tras la consultoría el retorno de la inversión está siendo rapidísimo.",
         name: "La Góndola",
         designation: "Hostelería Restauración",
-        src: "/clientes/gondola.jpeg",
+        src: "/clientes/gondola (1).webp",
     },
     {
         quote:
             "Excelente consultora energética. Optimizamos las tarifas de nuestras naves comerciales sin ninguna inversión inicial, y ahora tenemos mayor control en la demanda.",
         name: "SV Comercial",
         designation: "Sector Industrial Comercial",
-        src: "/clientes/logo sv comercial.png",
+        src: "/clientes/logo-sv-comercial (1).webp",
     },
     {
         quote:
             "Hortofrutícola Valenzuela dependía de inmensos costes de almacenamiento en frío. Martín diseñó un plan a medida de compensación que absorbe nuestros picos de consumo diarios.",
         name: "Hortofrutícola Valenzuela",
         designation: "Almacenaje y Exportación",
-        src: "/clientes/logo hortofruticula valenzuela.jpg",
+        src: "/clientes/logo-hortofruticula-valenzuela (1).webp",
     },
     {
         quote:
             "Recinovel ha rebajado por completo los recargos por energía reactiva que soportábamos en los meses pico gracias a su gestión directa con distribuidoras.",
         name: "Recinovel",
         designation: "Procesado y Reciclaje Industrial",
-        src: "/clientes/logo recinovel.png",
+        src: "/clientes/logo-recinovel (1).webp",
     },
     {
         quote:
             "Como industria alimentaria de alta capacidad frigorífica, el ahorro conseguido en todas nuestras cámaras tras el cambio de condiciones ha sido brutal y cuantioso.",
         name: "Heladería Montalbam",
         designation: "Producción Alimentaria",
-        src: "/clientes/logo heladeria montalbam.jpg",
+        src: "/clientes/logo-heladeria-montalbam.webp",
     },
     {
         quote:
             "Recomendables al 100%. Todo el proceso de tramitación, ingeniería y despliegue del estudio de rentabilidad fotovoltaico fue impecable, directo y transparente.",
         name: "Gestidro",
         designation: "Gestión Medioambiental",
-        src: "/clientes/logo gestidro.png",
+        src: "/clientes/logo-gestidro_1.webp",
     },
     {
         quote:
             "Desde el estudio de consumo hasta la firma oficial, el equipo nos dio una confianza técnica absoluta para ejecutar nuestro autoconsumo logístico expansivo.",
         name: "Logística P3",
         designation: "Centros Logísticos y Transporte",
-        src: "/clientes/p3 logo.png",
+        src: "/clientes/p3-logo_1.webp",
     },
 ];
 
