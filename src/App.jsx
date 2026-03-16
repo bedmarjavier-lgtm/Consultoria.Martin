@@ -17,6 +17,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import HeroSection from './components/landing/HeroSection'
 import HowWeWork from './components/landing/HowWeWork'
 import TrustCards from './components/landing/TrustCards'
+import InteractiveClients from './components/landing/InteractiveClients'
 import FaqSection from './components/landing/FaqSection'
 import LandingFooter from './components/landing/LandingFooter'
 
@@ -519,11 +520,11 @@ function App() {
   return (
     <div className="relative min-h-screen bg-[#00050a] flex flex-col">
       <Helmet>
-        <title>Consultoría.Martin | Expertos en Ahorro Energético y Placas Solares</title>
-        <meta name="description" content="Consultoría.Martin: análisis LiDAR gratuito de tu tejado, simulación 3D de autoconsumo solar y optimización de tarifas eléctricas. Ahorra hasta 2.100€/año en tu factura de luz." />
-        <meta name="keywords" content="autoconsumo solar, eficiencia energética, ahorro en factura de luz, simulación 3D, placas solares, consultoría energética, auditoría factura luz" />
-        <meta property="og:title" content="Consultoría.Martin | Expertos en Ahorro Energético y Placas Solares" />
-        <meta property="og:description" content="Análisis LiDAR gratuito de tu tejado y simulación real de ahorro energético basada en precios de mercado actuales." />
+        <title>Consultoría Martín | Especialistas en Consultoría Energética y Ahorro</title>
+        <meta name="description" content="Consultoría Martín: tu consultora energética líder. Análisis LiDAR gratuito de tu tejado, estudio fotovoltaico personalizado y optimización de tarifas eléctricas. Ahorra hasta 2.100€/año en tu factura de luz." />
+        <meta name="keywords" content="consultoria, consultoría energética, consultoria martin, consultoría martin, consultora, consultora energética, auditoria energetica, placas solares, ahorro luz, simulación 3D, estudio fotovoltaico" />
+        <meta property="og:title" content="Consultoría Martín | Consultora Energética y Solar de Precisión" />
+        <meta property="og:description" content="Tu consultoría energética de confianza. Análisis LiDAR gratuito de tu tejado y simulación real de ahorro energético basada en precios de mercado actuales." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://consultoriamartin.es/" />
         <link rel="canonical" href="https://consultoriamartin.es/" />
@@ -550,6 +551,7 @@ function App() {
                 <div className="flex gap-4 md:gap-8 bg-white/5 backdrop-blur-xl border border-white/10 py-3 px-6 md:px-10 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-white/70 shadow-[0_10px_40px_rgba(0,0,0,0.5)] transition-all hover:bg-white/10">
                   <a href="#metodologia" className="hover:text-cyan-400 transition-colors">Metodología</a>
                   <a href="#garantias" className="hover:text-cyan-400 transition-colors">Garantías</a>
+                  <a href="#casos-exito" className="hover:text-cyan-400 transition-colors">Casos de Éxito</a>
                   <a href="#faq" className="hover:text-cyan-400 transition-colors">FAQ</a>
                 </div>
               </nav>
@@ -581,6 +583,10 @@ function App() {
                 <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/5 to-transparent" />
 
                 <TrustCards />
+
+                <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+                
+                <InteractiveClients />
 
                 <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/5 to-transparent" />
 
